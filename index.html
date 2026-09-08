@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#16a34a">
 <title>Ludo Income</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0b7a45">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -387,6 +393,7 @@ nav button.active{
 <header>
     <div class="header-row">
         <div class="logo">Ludo Income</div>
+            <button id="installAppBtn" type="button" onclick="installLudoIncome()" style="display:none;border:0;border-radius:10px;padding:8px 10px;background:#0b7a45;color:#fff;font-weight:700;cursor:pointer">📲 App</button>
         <div class="online">● Online</div>
     </div>
 </header>
@@ -1073,6 +1080,34 @@ if(token()){
     $("app").classList.add("hidden");
 }
 
+
+// Ludo Income PWA install support
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  const btn = document.getElementById('installAppBtn');
+  if (btn && !window.matchMedia('(display-mode: standalone)').matches) btn.style.display = 'inline-block';
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('installAppBtn');
+  if (btn) btn.style.display = 'none';
+});
+async function installLudoIncome() {
+  if (!deferredInstallPrompt) {
+    alert('Install optionটি Chrome-এর browser menu থেকে পাওয়া যাবে: ⋮ → Add to Home screen / Install app');
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('installAppBtn');
+  if (btn) btn.style.display = 'none';
+}
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
 </script>
 
 </body>
