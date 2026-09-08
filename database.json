@@ -8,18 +8,8 @@
   "support_messages": [],
   "announcements": [],
   "payment_settings": {
-    "bkash": {
-      "number": "01301470686",
-      "label": "Personal",
-      "enabled": true,
-      "logo_url": ""
-    },
-    "nagad": {
-      "number": "01806097369",
-      "label": "Personal",
-      "enabled": true,
-      "logo_url": ""
-    },
+    "bkash": {"number":"01301470686","label":"Personal","enabled":true,"logo_url":""},
+    "nagad": {"number":"01806097369","label":"Personal","enabled":true,"logo_url":""},
     "min_deposit": 10,
     "instructions": [
       "কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।",
@@ -29,30 +19,15 @@
     ]
   },
   "profile_settings": {
-    "uid_prefix": "LI",
-    "profile_logo": "👨‍🦱",
-    "show_name": true,
-    "show_mobile": true,
-    "show_uid": true,
-    "show_matches": true,
-    "show_referral": true,
-    "uid_label": "UID Code",
-    "mobile_label": "Mobile Number",
-    "matches_label": "🎮 Matches",
-    "statement_label": "📒 My Statement"
+    "uid_prefix":"LI","profile_logo":"👨‍🦱","show_name":true,"show_mobile":true,"show_uid":true,"show_matches":true,"show_referral":true,
+    "uid_label":"UID Code","mobile_label":"Mobile Number","matches_label":"🎮 Matches","statement_label":"📒 My Statement"
   },
   "match_settings": {
-    "tournament_label": "🏆 Tournament",
+    "players_to_close": 2,
+    "show_room_after_full": true,
+    "one_screenshot_per_match": true,
     "my_match_label": "🎉 My Match 🎉",
-    "room_label": "Room Code",
-    "copy_label": "Copy",
-    "close_label": "🔒 Match Closed",
-    "upload_winner_label": "📸 Upload Winning Screenshot",
-    "user_profile_label": "User Prof✅",
-    "auto_close": true,
-    "show_room_only_when_full": true,
-    "default_max_players": 2,
-    "show_uid_in_admin": true,
-    "show_mobile_in_admin": true
+    "upload_label": "📸 Upload Winning Screenshot",
+    "success_message": "Screenshot submitted successfully!"
   }
 }

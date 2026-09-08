@@ -1,41 +1,26 @@
 # Ludo Income — Render Ready
 
-This ZIP is structured for a Node/Express Render Web Service.
+Includes:
+- User authentication and random UID
+- Deposit / Withdraw
+- My Statement with date/time
+- Tournament matches
+- Auto-close after configured number of players (default 2)
+- Room Code visible only to joined players after match is full
+- 🎉 My Match page
+- Winner screenshot upload from My Match only
+- One screenshot per user/match by default
+- Admin screenshot review with User Profile button
+- Admin match/player details with UID and mobile
+- Admin Match Settings, Profile Settings and Deposit Settings
 
-## Project structure
+## Render
+Build: `npm install`
+Start: `npm start`
 
-index.html
-server.js
-package.json
-render.yaml
-public/admin.html
-data/database.json
-uploads/
+Environment variables:
+- `ADMIN_MOBILE`
+- `ADMIN_PASSWORD`
+- `JWT_SECRET`
 
-## Render settings
-
-Build Command: npm install
-Start Command: npm start
-Root Directory: leave empty
-
-## URLs
-
-User: /
-Admin: /admin
-Health: /api/health
-
-## Admin environment variables
-
-ADMIN_MOBILE=your admin mobile
-ADMIN_PASSWORD=your strong password
-JWT_SECRET=your long random secret
-
-Do not use demo/default admin credentials in production.
-
-## Important
-
-Upload/extract the FILES inside this ZIP to the GitHub repository root. Do not upload only the ZIP file.
-
-The frontend uses the same server origin for API requests, so it does not depend on the old Render URL.
-
-JSON storage is suitable for testing/demo only. For a real-money service, use a persistent database, secure payment verification, audit logs, rate limiting, backups, and comply with applicable laws/payment-provider rules.
+Note: JSON file storage is for demo/testing. For a real-money production system, use a persistent database and stronger security/audit controls.

@@ -20,7 +20,7 @@ const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
-if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"}},null,2));
+if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
 
 function readDB(){
   const db=JSON.parse(fs.readFileSync(DB_FILE,"utf8"));
@@ -50,18 +50,12 @@ function readDB(){
   ps.statement_label=ps.statement_label||"📒 My Statement";
   db.match_settings ||= {};
   const ms=db.match_settings;
-  ms.tournament_label=ms.tournament_label||"🏆 Tournament";
+  ms.players_to_close=Math.max(2,Number(ms.players_to_close)||2);
+  if(ms.show_room_after_full===undefined) ms.show_room_after_full=true;
   ms.my_match_label=ms.my_match_label||"🎉 My Match 🎉";
-  ms.room_label=ms.room_label||"Room Code";
-  ms.copy_label=ms.copy_label||"Copy";
-  ms.close_label=ms.close_label||"🔒 Match Closed";
-  ms.upload_winner_label=ms.upload_winner_label||"📸 Upload Winning Screenshot";
-  ms.user_profile_label=ms.user_profile_label||"User Prof✅";
-  if(ms.auto_close===undefined) ms.auto_close=true;
-  if(ms.show_room_only_when_full===undefined) ms.show_room_only_when_full=true;
-  if(ms.default_max_players===undefined) ms.default_max_players=2;
-  if(ms.show_uid_in_admin===undefined) ms.show_uid_in_admin=true;
-  if(ms.show_mobile_in_admin===undefined) ms.show_mobile_in_admin=true;
+  ms.upload_label=ms.upload_label||"📸 Upload Winning Screenshot";
+  ms.success_message=ms.success_message||"Screenshot submitted successfully!";
+  if(ms.one_screenshot_per_match===undefined) ms.one_screenshot_per_match=true;
   return db
 }
 function writeDB(db){fs.writeFileSync(DB_FILE,JSON.stringify(db,null,2))}
@@ -121,28 +115,41 @@ app.get("/api/user/profile",auth,(req,res)=>{
 app.get("/api/user/balance",auth,(req,res)=>res.json({balance:getBalance(readDB(),req.user.id)}));
 
 app.get("/api/matches",auth,(req,res)=>{
- const db=readDB(); res.json({matches:db.matches.map(m=>{const players=db.match_players.filter(p=>p.match_id===m.id).length;return {...m,players,closed:players>=Number(m.max_players||2),room_ready:players>=Number(m.max_players||2)}}),match_settings:db.match_settings});
+ const db=readDB(), threshold=Number(db.match_settings?.players_to_close||2);
+ res.json({matches:db.matches.map(m=>{
+   const ps=db.match_players.filter(p=>p.match_id===m.id);
+   const joined=ps.some(p=>p.user_id===req.user.id);
+   const full=ps.length>=threshold;
+   return {...m,players:ps.length,full,joined,room_id:(joined&&full&&db.match_settings?.show_room_after_full!==false)?(m.room_id||""):""};
+ })});
 });
 app.get("/api/user/my-matches",auth,(req,res)=>{
- const db=readDB();
- const items=db.match_players.filter(p=>p.user_id===req.user.id).map(p=>{const m=db.matches.find(x=>x.id===p.match_id);if(!m)return null;const players=db.match_players.filter(x=>x.match_id===m.id).length;const w=db.winnings.find(x=>x.match_id===m.id&&x.user_id===req.user.id);return {...m,players,closed:players>=Number(m.max_players||2),room_ready:players>=Number(m.max_players||2),joined_at:p.created_at,winning_status:w?.status||null,winning_id:w?.id||null};}).filter(Boolean).sort((a,b)=>new Date(b.joined_at)-new Date(a.joined_at));
- res.json({matches:items,match_settings:db.match_settings});
+ const db=readDB(), threshold=Number(db.match_settings?.players_to_close||2);
+ const items=db.match_players.filter(p=>p.user_id===req.user.id).map(p=>{
+   const m=db.matches.find(x=>x.id===p.match_id); if(!m)return null;
+   const players=db.match_players.filter(x=>x.match_id===m.id).length;
+   const full=players>=threshold;
+   const submission=db.winnings.find(w=>w.user_id===req.user.id&&w.match_id===m.id);
+   return {id:m.id,title:m.title||"Ludo Match",entry_fee:Number(m.entry_fee||0),prize:Number(m.prize||0),time:m.time||"",status:m.status||"upcoming",players,full,room_id:(full&&db.match_settings?.show_room_after_full!==false)?(m.room_id||""):"",joined_at:p.created_at,submission:submission?{id:submission.id,status:submission.status,screenshot:submission.screenshot,created_at:submission.created_at}:null};
+ }).filter(Boolean).sort((a,b)=>new Date(b.joined_at)-new Date(a.joined_at));
+ res.json({matches:items,settings:db.match_settings});
 });
 app.post("/api/matches/:id/join",auth,(req,res)=>{
  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id); if(!m)return res.status(404).json({message:"Match not found"});
+ if(String(m.status).toLowerCase()==="full"||String(m.status).toLowerCase()==="completed")return res.status(400).json({message:"Match is closed"});
  if(db.match_players.some(p=>p.match_id==m.id&&p.user_id==req.user.id))return res.status(400).json({message:"Already joined"});
- const players=db.match_players.filter(p=>p.match_id==m.id).length, max=Number(m.max_players||2);
- if(players>=max)return res.status(400).json({message:"Match is full"});
- if(String(m.status).toLowerCase()==="completed")return res.status(400).json({message:"Match is completed"});
+ const threshold=Number(db.match_settings?.players_to_close||2);
+ const players=db.match_players.filter(p=>p.match_id==m.id).length;
+ if(players>=threshold)return res.status(400).json({message:"Match is full"});
  const b=getBalance(db,req.user.id),fee=Number(m.entry_fee)||0;
  if(Number(b.gaming_balance)<fee)return res.status(400).json({message:"Insufficient gaming balance"});
- const now=new Date().toISOString();
- b.gaming_balance-=fee; db.match_players.push({id:id(db.match_players),match_id:m.id,user_id:req.user.id,created_at:now});
- db.transactions.push({id:id(db.transactions),user_id:req.user.id,type:"match_entry",amount:fee,status:"approved",match_id:m.id,created_at:now});
+ b.gaming_balance-=fee;
+ db.match_players.push({id:id(db.match_players),match_id:m.id,user_id:req.user.id,created_at:new Date().toISOString()});
+ db.transactions.push({id:id(db.transactions),user_id:req.user.id,type:"match_entry",amount:fee,status:"approved",match_id:m.id,created_at:new Date().toISOString()});
  const newCount=players+1;
- if(db.match_settings.auto_close && newCount>=max) m.status="closed";
+ if(newCount>=threshold) m.status="full";
  writeDB(db);
- res.json({message:newCount>=max?"Match joined successfully — Match Closed":"Match joined successfully",closed:newCount>=max,room_id:newCount>=max?(m.room_id||""):""});
+ res.json({message:newCount>=threshold?"Match joined. 2 players joined, match is now closed.":"Match joined successfully",full:newCount>=threshold,room_id:(newCount>=threshold&&db.match_settings?.show_room_after_full!==false)?(m.room_id||""):""});
 });
 app.get("/api/payment-settings",(req,res)=>{
  const s=readDB().payment_settings;
@@ -180,18 +187,21 @@ app.get("/api/user/statement",auth,(req,res)=>{
    else if(t.type==="match_profit") { const m=db.matches.find(x=>x.id===t.match_id); events.push({id:"t"+t.id,type:"profit",title:"Match Profit",amount:Number(t.amount||0),status:t.status,match_id:t.match_id,match_title:m?.title||"Ludo Match",created_at:t.created_at}); }
  });
  const joined=db.match_players.filter(p=>p.user_id===uid);
- const approvedWins=new Set(db.winnings.filter(w=>w.user_id===uid&&w.status==="approved").map(w=>w.match_id));
- joined.forEach(p=>{const m=db.matches.find(x=>x.id===p.match_id); if(m&&String(m.status).toLowerCase()==="completed"&&!approvedWins.has(p.match_id)&&!userTx.some(t=>t.type==="match_loss"&&t.match_id===p.match_id)){events.push({id:"loss"+p.id,type:"loss",title:"Match Loss",amount:-Number(m.entry_fee||0),status:"completed",match_id:m.id,match_title:m.title||"Ludo Match",created_at:p.created_at});}});
+ const submittedWins=new Set(db.winnings.filter(w=>w.user_id===uid).map(w=>w.match_id));
+ joined.forEach(p=>{const m=db.matches.find(x=>x.id===p.match_id); if(m&&String(m.status).toLowerCase()==="completed"&&!submittedWins.has(p.match_id)&&!userTx.some(t=>t.type==="match_loss"&&t.match_id===p.match_id)){events.push({id:"loss"+p.id,type:"loss",title:"Match Loss",amount:-Number(m.entry_fee||0),status:"completed",match_id:m.id,match_title:m.title||"Ludo Match",created_at:p.created_at});}});
  events.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
  res.json({statement:events,match_count:joined.length,profile_settings:db.profile_settings});
 });
 app.post("/api/winning",auth,upload.single("screenshot"),(req,res)=>{
- const db=readDB(),matchId=Number(req.body.match_id); if(!req.file)return res.status(400).json({message:"Screenshot required"});
+ const db=readDB(),matchId=Number(req.body.match_id);
+ if(!req.file)return res.status(400).json({message:"Screenshot required"});
  const m=db.matches.find(x=>x.id===matchId); if(!m)return res.status(404).json({message:"Match not found"});
  const joined=db.match_players.some(p=>p.match_id===matchId&&p.user_id===req.user.id); if(!joined)return res.status(403).json({message:"You did not join this match"});
- const count=db.match_players.filter(p=>p.match_id===matchId).length; if(count<Number(m.max_players||2))return res.status(400).json({message:"Match must have all players before winning submission"});
- if(db.winnings.some(w=>w.match_id===matchId&&w.user_id===req.user.id&&["pending","approved"].includes(w.status)))return res.status(400).json({message:"Winning already submitted"});
- db.winnings.push({id:id(db.winnings),user_id:req.user.id,match_id:matchId,room_id:req.body.room_id||m.room_id||"",screenshot:"/uploads/"+req.file.filename,status:"pending",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Winning submitted for verification"});
+ const threshold=Number(db.match_settings?.players_to_close||2), players=db.match_players.filter(p=>p.match_id===matchId).length;
+ if(players<threshold)return res.status(400).json({message:"২ জন player join করার পর screenshot submit করা যাবে"});
+ if(db.match_settings?.one_screenshot_per_match!==false && db.winnings.some(w=>w.user_id===req.user.id&&w.match_id===matchId))return res.status(400).json({message:"এই match-এর screenshot একবারই submit করা যাবে"});
+ db.winnings.push({id:id(db.winnings),user_id:req.user.id,match_id:matchId,room_id:m.room_id||"",screenshot:"/uploads/"+req.file.filename,status:"pending",created_at:new Date().toISOString()});
+ writeDB(db); res.json({success:true,message:db.match_settings?.success_message||"Screenshot submitted successfully!"});
 });
 app.post("/api/support",auth,(req,res)=>{
  const db=readDB(); if(!req.body.message)return res.status(400).json({message:"Message required"});
@@ -211,6 +221,7 @@ app.get("/api/admin/stats",admin,(req,res)=>{
   pending_requests:db.transactions.filter(x=>x.status==="pending").length+db.winnings.filter(x=>x.status==="pending").length
  });
 });
+app.get("/api/admin/users/:id/profile",admin,(req,res)=>{const db=readDB(),u=db.users.find(x=>x.id==req.params.id);if(!u)return res.status(404).json({message:"User not found"});const b=getBalance(db,u.id);res.json({user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code||"",referral_code:u.referral_code||"",created_at:u.created_at,blocked:!!u.blocked},balance:b,matches:db.match_players.filter(p=>p.user_id===u.id).map(p=>{const m=db.matches.find(x=>x.id===p.match_id);return {match_id:p.match_id,title:m?.title||"Ludo Match",entry_fee:Number(m?.entry_fee||0),status:m?.status||"",joined_at:p.created_at}})});});
 app.get("/api/admin/users",admin,(req,res)=>{
  const db=readDB(),q=(req.query.search||"").toLowerCase();
  res.json({users:db.users.filter(u=>!q||u.name.toLowerCase().includes(q)||u.mobile.includes(q)).map(u=>{const b=getBalance(db,u.id);return {id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code||"",referral_code:u.referral_code,blocked:!!u.blocked,matches:db.match_players.filter(p=>p.user_id===u.id).length,gaming_balance:b.gaming_balance,winning_balance:b.winning_balance}})});
@@ -237,18 +248,18 @@ app.post("/api/admin/withdraws/:id/:action",admin,(req,res)=>{
  else return res.status(400).json({message:"Invalid action"});
  writeDB(db);res.json({message:"Withdraw "+req.params.action});
 });
-app.get("/api/admin/users/:id/profile",admin,(req,res)=>{
- const db=readDB(),u=db.users.find(x=>x.id==req.params.id); if(!u)return res.status(404).json({message:"User not found"});
- const b=getBalance(db,u.id); const joined=db.match_players.filter(p=>p.user_id===u.id);
- const matches=joined.map(p=>{const m=db.matches.find(x=>x.id===p.match_id);const w=db.winnings.find(x=>x.user_id===u.id&&x.match_id===p.match_id);return {match_id:p.match_id,title:m?.title||"Ludo Match",entry_fee:Number(m?.entry_fee||0),prize:Number(m?.prize||0),status:m?.status||"",joined_at:p.created_at,winning_status:w?.status||null,screenshot:w?.screenshot||""};});
- const statement=db.transactions.filter(t=>t.user_id===u.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
- res.json({user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code||"",referral_code:u.referral_code||"",blocked:!!u.blocked},balance:b,matches,statement});
+app.get("/api/admin/matches",admin,(req,res)=>{
+ const db=readDB();
+ res.json({matches:db.matches.map(m=>{
+  const ps=db.match_players.filter(p=>p.match_id===m.id);
+  return {...m,players:ps.length,player_details:ps.map(p=>{
+   const u=db.users.find(x=>x.id===p.user_id);
+   return {user_id:p.user_id,name:u?.name||"-",uid_code:u?.uid_code||"-",mobile:u?.mobile||"-"};
+  })};
+ })});
 });
-app.get("/api/admin/match-settings",admin,(req,res)=>res.json({match_settings:readDB().match_settings}));
-app.put("/api/admin/match-settings",admin,(req,res)=>{const db=readDB(),b=req.body||{},s=db.match_settings||{};["tournament_label","my_match_label","room_label","copy_label","close_label","upload_winner_label","user_profile_label"].forEach(k=>{if(b[k]!==undefined)s[k]=String(b[k]);});["auto_close","show_room_only_when_full","show_uid_in_admin","show_mobile_in_admin"].forEach(k=>{if(b[k]!==undefined)s[k]=!!b[k];});if(b.default_max_players!==undefined)s.default_max_players=Math.max(2,Number(b.default_max_players)||2);db.match_settings=s;writeDB(db);res.json({message:"Match settings saved",match_settings:s});});
-app.get("/api/admin/matches",admin,(req,res)=>{const db=readDB();res.json({matches:db.matches.map(m=>({...m,players:db.match_players.filter(p=>p.match_id===m.id).length}))})});
 app.post("/api/admin/matches",admin,(req,res)=>{
- const db=readDB(),m={id:id(db.matches),title:req.body.title||"Ludo Match",entry_fee:Number(req.body.entry_fee)||0,prize:Number(req.body.prize)||0,max_players:Number(req.body.max_players)||Number(db.match_settings?.default_max_players||2),time:req.body.time||"",status:req.body.status||"upcoming",room_id:req.body.room_id||"",created_at:new Date().toISOString()};
+ const db=readDB(),m={id:id(db.matches),title:req.body.title||"Ludo Match",entry_fee:Number(req.body.entry_fee)||0,prize:Number(req.body.prize)||0,max_players:Number(req.body.max_players)||2,time:req.body.time||"",status:req.body.status||"upcoming",room_id:req.body.room_id||"",created_at:new Date().toISOString()};
  db.matches.push(m);writeDB(db);res.json({message:"Match created",match:m});
 });
 app.put("/api/admin/matches/:id",admin,(req,res)=>{
@@ -282,6 +293,8 @@ app.put("/api/admin/payment-settings",admin,(req,res)=>{
  if(Array.isArray(body.instructions)) s.instructions=body.instructions.map(x=>String(x).trim()).filter(Boolean).slice(0,10);
  writeDB(db);res.json({message:"Payment settings saved",payment_settings:s});
 });
+app.get("/api/admin/match-settings",admin,(req,res)=>res.json({match_settings:readDB().match_settings}));
+app.put("/api/admin/match-settings",admin,(req,res)=>{const db=readDB(),b=req.body||{},s=db.match_settings||{};if(b.players_to_close!==undefined)s.players_to_close=Math.max(2,Number(b.players_to_close)||2);if(b.show_room_after_full!==undefined)s.show_room_after_full=!!b.show_room_after_full;if(b.one_screenshot_per_match!==undefined)s.one_screenshot_per_match=!!b.one_screenshot_per_match;["my_match_label","upload_label","success_message"].forEach(k=>{if(b[k]!==undefined)s[k]=String(b[k]);});db.match_settings=s;writeDB(db);res.json({message:"Match settings saved",match_settings:s});});
 app.get("/api/admin/profile-settings",admin,(req,res)=>res.json({profile_settings:readDB().profile_settings}));
 app.put("/api/admin/profile-settings",admin,(req,res)=>{
  const db=readDB(),b=req.body||{},s=db.profile_settings||{};
