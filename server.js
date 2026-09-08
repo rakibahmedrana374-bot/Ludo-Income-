@@ -20,7 +20,7 @@ const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
-if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"}},null,2));
+if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{my_match_label:"🎉 My Match 🎉",room_label:"Room Code",copy_label:"Copy",winner_upload_label:"🏆 Upload Winning Screenshot",winner_instruction:"ম্যাচ জিতলে আপনার winning screenshot upload করুন।"}},null,2));
 
 function readDB(){
   const db=JSON.parse(fs.readFileSync(DB_FILE,"utf8"));
@@ -48,6 +48,8 @@ function readDB(){
   ps.mobile_label=ps.mobile_label||"Mobile Number";
   ps.matches_label=ps.matches_label||"🎮 Matches";
   ps.statement_label=ps.statement_label||"📒 My Statement";
+  db.match_settings ||= {}; const ms=db.match_settings;
+  ms.my_match_label=ms.my_match_label||"🎉 My Match 🎉"; ms.room_label=ms.room_label||"Room Code"; ms.copy_label=ms.copy_label||"Copy"; ms.winner_upload_label=ms.winner_upload_label||"🏆 Upload Winning Screenshot"; ms.winner_instruction=ms.winner_instruction||"ম্যাচ জিতলে আপনার winning screenshot upload করুন।";
   return db
 }
 function writeDB(db){fs.writeFileSync(DB_FILE,JSON.stringify(db,null,2))}
@@ -107,7 +109,12 @@ app.get("/api/user/profile",auth,(req,res)=>{
 app.get("/api/user/balance",auth,(req,res)=>res.json({balance:getBalance(readDB(),req.user.id)}));
 
 app.get("/api/matches",auth,(req,res)=>{
- const db=readDB(); res.json({matches:db.matches.map(m=>({...m,players:db.match_players.filter(p=>p.match_id===m.id).length}))});
+ const db=readDB(); res.json({matches:db.matches.map(m=>{const players=db.match_players.filter(p=>p.match_id===m.id).length;return {...m,players,room_ready:players>=2&&!!String(m.room_id||"").trim()};})});
+});
+app.get("/api/my-matches",auth,(req,res)=>{
+ const db=readDB(),uid=req.user.id;
+ const items=db.match_players.filter(p=>p.user_id===uid).map(p=>{const m=db.matches.find(x=>x.id===p.match_id);if(!m)return null;const players=db.match_players.filter(x=>x.match_id===m.id);const win=db.winnings.find(w=>w.user_id===uid&&w.match_id===m.id);return {...m,players:players.length,room_ready:players.length>=2&&!!String(m.room_id||"").trim(),joined_at:p.created_at,winning_status:win?.status||null,winning_screenshot:win?.screenshot||null};}).filter(Boolean).sort((a,b)=>new Date(b.joined_at)-new Date(a.joined_at));
+ res.json({matches:items,match_settings:db.match_settings});
 });
 app.post("/api/matches/:id/join",auth,(req,res)=>{
  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id); if(!m)return res.status(404).json({message:"Match not found"});
@@ -163,7 +170,12 @@ app.get("/api/user/statement",auth,(req,res)=>{
 });
 app.post("/api/winning",auth,upload.single("screenshot"),(req,res)=>{
  const db=readDB(); if(!req.file)return res.status(400).json({message:"Screenshot required"});
- db.winnings.push({id:id(db.winnings),user_id:req.user.id,match_id:Number(req.body.match_id),room_id:req.body.room_id,screenshot:"/uploads/"+req.file.filename,status:"pending",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Winning submitted for verification"});
+ const matchId=Number(req.body.match_id),m=db.matches.find(x=>x.id===matchId); if(!m)return res.status(404).json({message:"Match not found"});
+ if(!db.match_players.some(p=>p.match_id===matchId&&p.user_id===req.user.id))return res.status(403).json({message:"আপনি এই ম্যাচে join করেননি"});
+ if(db.match_players.filter(p=>p.match_id===matchId).length<2)return res.status(400).json({message:"২ জন player join করার পর winning submit করা যাবে"});
+ if(!String(m.room_id||"").trim())return res.status(400).json({message:"Admin এখনো Room Code সেট করেননি"});
+ if(db.winnings.some(w=>w.user_id===req.user.id&&w.match_id===matchId&&w.status==="pending"))return res.status(400).json({message:"Winning already submitted"});
+ db.winnings.push({id:id(db.winnings),user_id:req.user.id,match_id:matchId,room_id:m.room_id,screenshot:"/uploads/"+req.file.filename,status:"pending",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Winning submitted for verification"});
 });
 app.post("/api/support",auth,(req,res)=>{
  const db=readDB(); if(!req.body.message)return res.status(400).json({message:"Message required"});
@@ -253,6 +265,8 @@ app.put("/api/admin/profile-settings",admin,(req,res)=>{
  ["show_name","show_mobile","show_uid","show_matches","show_referral"].forEach(k=>{if(b[k]!==undefined)s[k]=!!b[k];});
  db.profile_settings=s;writeDB(db);res.json({message:"Profile settings saved",profile_settings:s});
 });
+app.get("/api/admin/match-settings",admin,(req,res)=>res.json({match_settings:readDB().match_settings}));
+app.put("/api/admin/match-settings",admin,(req,res)=>{const db=readDB(),b=req.body||{},s=db.match_settings||{};["my_match_label","room_label","copy_label","winner_upload_label","winner_instruction"].forEach(k=>{if(b[k]!==undefined)s[k]=String(b[k]);});db.match_settings=s;writeDB(db);res.json({message:"Match settings saved",match_settings:s});});
 app.get("/api/admin/announcements",admin,(req,res)=>res.json({items:readDB().announcements}));
 app.post("/api/admin/announcements",admin,(req,res)=>{const db=readDB();const a={id:id(db.announcements),text:req.body.text||"",enabled:true,created_at:new Date().toISOString()};db.announcements.push(a);writeDB(db);res.json({message:"Announcement created",announcement:a})});
 app.post("/api/admin/announcements/:id/toggle",admin,(req,res)=>{const db=readDB(),a=db.announcements.find(x=>x.id==req.params.id);if(!a)return res.status(404).json({message:"Not found"});a.enabled=!a.enabled;writeDB(db);res.json({message:"Updated"})});

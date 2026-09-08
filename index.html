@@ -444,6 +444,15 @@ nav button.active{
     </div>
 </section>
 
+<!-- MY MATCH -->
+<section id="page-mymatches" class="hidden">
+    <div class="card">
+        <div class="section-title" id="myMatchTitle">🎉 My Match 🎉</div>
+        <div class="notice">২ জন player join করলে Admin সেট করা Room Code এখানে automatically দেখা যাবে। Room Code Copy করতে পারবেন।</div>
+        <div id="myMatchesList" class="loading">Loading...</div>
+    </div>
+</section>
+
 <!-- DEPOSIT -->
 <section id="page-deposit" class="hidden">
     <div class="card">
@@ -577,8 +586,8 @@ nav button.active{
         <span class="nav-icon">🏆</span>Match
     </button>
 
-    <button id="nav-winning" onclick="showPage('winning')">
-        <span class="nav-icon">🎁</span>Winning
+    <button id="nav-mymatches" onclick="showPage('mymatches')">
+        <span class="nav-icon">🎉</span>My Match
     </button>
 
     <button id="nav-support" onclick="showPage('support')">
@@ -725,6 +734,7 @@ function logout(){
 const pages = [
     "home",
     "matches",
+    "mymatches",
     "deposit",
     "withdraw",
     "history",
@@ -748,6 +758,8 @@ function showPage(page){
 
     localStorage.setItem("ludo_income_page",page);
 
+    if(page === "mymatches") loadMyMatches();
+    if(page === "history") loadHistory();
     window.scrollTo({
         top:0,
         behavior:"smooth"
@@ -922,6 +934,34 @@ async function joinMatch(id){
     }catch(e){
         alert(e.message);
     }
+}
+
+/* MY MATCH */
+async function loadMyMatches(){
+    try{
+        const data=await api("/api/my-matches");
+        const list=data.matches||[];
+        const s=data.match_settings||{};
+        $("myMatchTitle").textContent=s.my_match_label||"🎉 My Match 🎉";
+        if(!list.length){$("myMatchesList").innerHTML='<div class="empty">আপনি এখনো কোনো match join করেননি।</div>';return;}
+        $("myMatchesList").innerHTML=list.map(m=>{
+            const ready=!!m.room_ready;
+            const status=m.winning_status;
+            return `<div class="match">
+                <div class="match-top"><div><div class="match-title">${escapeHtml(m.title||"Ludo Match")}</div><small>Match ID: ${m.id}</small></div><span class="badge">${escapeHtml(m.status||"upcoming")}</span></div>
+                <div class="match-info"><div class="info"><small>Players</small><b>${m.players}/${m.max_players}</b></div><div class="info"><small>Entry</small><b>৳${money(m.entry_fee)}</b></div><div class="info"><small>Prize</small><b>৳${money(m.prize)}</b></div></div>
+                ${ready?`<div class="copy"><b>${escapeHtml(s.room_label||"Room Code")}:</b> <span id="room-${m.id}">${escapeHtml(m.room_id)}</span> <button class="tiny-copy" onclick="copyText('${escapeHtml(String(m.room_id).replace(/'/g,"\\'") )}')">${escapeHtml(s.copy_label||"Copy")}</button></div>`:`<div class="notice">২ জন player join করলে Room Code এখানে দেখা যাবে। এখন ${m.players}/${m.max_players}</div>`}
+                ${ready && status!="approved" ? `<div class="notice">${escapeHtml(s.winner_instruction||"ম্যাচ জিতলে আপনার winning screenshot upload করুন।")}</div><input id="winfile-${m.id}" type="file" accept="image/*"><button class="btn btn-green" onclick="uploadMyMatchWinning(${m.id})">${escapeHtml(s.winner_upload_label||"🏆 Upload Winning Screenshot")}</button>` : (status==="pending"?'<div class="required-note">Winning screenshot verification pending.</div>':status==="approved"?'<div class="success">✅ Winning approved</div>':'')}
+            </div>`;
+        }).join("");
+    }catch(e){$("myMatchesList").innerHTML='<div class="empty">My Match load করা যাচ্ছে না।</div>';}
+}
+async function copyText(text){try{await navigator.clipboard.writeText(text);alert("Copied");}catch(e){prompt("Copy করুন:",text);}}
+async function uploadMyMatchWinning(matchId){
+    const file=$("winfile-"+matchId)?.files?.[0];
+    if(!file){alert("Winning screenshot নির্বাচন করুন");return;}
+    const form=new FormData();form.append("match_id",matchId);form.append("screenshot",file);
+    try{const res=await fetch(API_BASE+"/api/winning",{method:"POST",headers:{Authorization:"Bearer "+token()},body:form});const data=await res.json();if(!res.ok)throw new Error(data.message||"Upload failed");alert(data.message||"Winning submitted");loadMyMatches();}catch(e){alert(e.message);}
 }
 
 /* DEPOSIT */
