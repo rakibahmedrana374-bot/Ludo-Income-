@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#16a34a">
+<title>Ludo Income</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+    font-family:Arial,"Noto Sans Bengali",sans-serif;
+    background:#f1f5f9;
+    color:#111827;
+}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+
+.app{
+    max-width:500px;
+    min-height:100vh;
+    margin:auto;
+    background:#f8fafc;
+}
+
+header{
+    background:linear-gradient(135deg,#16a34a,#15803d);
+    color:white;
+    padding:18px 16px;
+    position:sticky;
+    top:0;
+    z-index:10;
+    box-shadow:0 3px 12px #0002;
+}
+.header-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.logo{
+    font-size:24px;
+    font-weight:900;
+}
+.online{
+    background:#ffffff22;
+    padding:6px 10px;
+    border-radius:20px;
+    font-size:12px;
+}
+
+.content{padding:14px 14px 90px}
+
+.card{
+    background:white;
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:14px;
+    box-shadow:0 3px 12px #0000000d;
+}
+
+.balance-card{
+    background:linear-gradient(135deg,#14532d,#16a34a);
+    color:white;
+}
+.balance-title{font-size:13px;opacity:.9}
+.balance{
+    font-size:32px;
+    font-weight:900;
+    margin:5px 0 15px;
+}
+.balance-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+.balance-box{
+    background:#ffffff18;
+    border-radius:12px;
+    padding:10px;
+}
+.balance-box small{opacity:.8}
+.balance-box strong{
+    display:block;
+    margin-top:4px;
+    font-size:17px;
+}
+
+.actions{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+}
+.action{
+    border:0;
+    border-radius:13px;
+    padding:14px 8px;
+    background:#dcfce7;
+    color:#166534;
+    font-weight:800;
+}
+.action:hover{background:#bbf7d0}
+
+.section-title{
+    font-size:18px;
+    font-weight:900;
+    margin-bottom:12px;
+}
+
+.match{
+    border:1px solid #e5e7eb;
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:10px;
+}
+.match-top{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+}
+.match-title{font-weight:900}
+.badge{
+    padding:5px 8px;
+    border-radius:20px;
+    background:#dcfce7;
+    color:#166534;
+    font-size:11px;
+    font-weight:bold;
+}
+.match-info{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:8px;
+    margin:12px 0;
+}
+.info{
+    background:#f8fafc;
+    padding:8px;
+    border-radius:9px;
+}
+.info small{color:#64748b}
+.info b{display:block;margin-top:2px}
+
+.btn{
+    width:100%;
+    border:0;
+    border-radius:11px;
+    padding:12px;
+    font-weight:900;
+}
+.btn-green{
+    background:#16a34a;
+    color:white;
+}
+.btn-green:hover{background:#15803d}
+.btn-red{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+.btn-gray{
+    background:#e5e7eb;
+    color:#374151;
+}
+
+.form-group{margin-bottom:12px}
+label{
+    display:block;
+    margin-bottom:6px;
+    font-size:13px;
+    font-weight:bold;
+}
+input,select,textarea{
+    width:100%;
+    padding:12px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    outline:none;
+    background:white;
+}
+input:focus,select:focus,textarea:focus{
+    border-color:#16a34a;
+}
+textarea{min-height:100px;resize:vertical}
+
+.method{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:12px;
+}
+.method button{
+    padding:11px;
+    border:2px solid #e5e7eb;
+    background:white;
+    border-radius:10px;
+    font-weight:bold;
+}
+.method button.active{
+    border-color:#16a34a;
+    background:#dcfce7;
+    color:#166534;
+}
+
+.notice{
+    background:#ecfdf5;
+    border-left:4px solid #16a34a;
+    padding:12px;
+    border-radius:10px;
+    margin-bottom:14px;
+    font-size:13px;
+}
+
+.history-item{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:12px 0;
+    border-bottom:1px solid #e5e7eb;
+}
+.history-item:last-child{border-bottom:0}
+.plus{color:#16a34a;font-weight:900}
+.minus{color:#dc2626;font-weight:900}
+
+.profile-row{
+    display:flex;
+    justify-content:space-between;
+    padding:12px 0;
+    border-bottom:1px solid #eee;
+}
+.profile-row:last-child{border-bottom:0}
+
+nav{
+    position:fixed;
+    bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(500px,100%);
+    background:white;
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    border-top:1px solid #e5e7eb;
+    z-index:20;
+}
+nav button{
+    border:0;
+    background:white;
+    padding:10px 3px;
+    color:#64748b;
+    font-size:11px;
+}
+nav button.active{
+    color:#16a34a;
+    font-weight:900;
+}
+.nav-icon{font-size:19px;display:block;margin-bottom:2px}
+
+.auth{
+    min-height:100vh;
+    max-width:500px;
+    margin:auto;
+    display:flex;
+    align-items:center;
+    padding:20px;
+    background:linear-gradient(135deg,#14532d,#16a34a);
+}
+.auth-card{
+    background:white;
+    width:100%;
+    padding:24px;
+    border-radius:22px;
+    box-shadow:0 15px 40px #0003;
+}
+.auth-logo{
+    text-align:center;
+    color:#16a34a;
+    font-size:32px;
+    font-weight:900;
+    margin-bottom:5px;
+}
+.auth-sub{
+    text-align:center;
+    color:#64748b;
+    margin-bottom:22px;
+}
+.auth-tabs{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:5px;
+    background:#f1f5f9;
+    padding:5px;
+    border-radius:10px;
+    margin-bottom:18px;
+}
+.auth-tabs button{
+    border:0;
+    background:transparent;
+    padding:10px;
+    border-radius:8px;
+}
+.auth-tabs button.active{
+    background:white;
+    color:#16a34a;
+    font-weight:900;
+}
+.msg{
+    padding:10px;
+    border-radius:9px;
+    margin-bottom:12px;
+    font-size:13px;
+}
+.error{background:#fee2e2;color:#991b1b}
+.success{background:#dcfce7;color:#166534}
+
+.empty{
+    text-align:center;
+    padding:25px 10px;
+    color:#64748b;
+}
+.loading{
+    text-align:center;
+    padding:20px;
+    color:#64748b;
+}
+</style>
+</head>
+
+<body>
+
+<!-- AUTH -->
+<div id="authScreen" class="auth">
+<div class="auth-card">
+
+    <div class="auth-logo">Ludo Income</div>
+    <div class="auth-sub">Play • Win • Earn</div>
+
+    <div class="auth-tabs">
+        <button id="loginTab" class="active" onclick="showAuth('login')">Login</button>
+        <button id="registerTab" onclick="showAuth('register')">Register</button>
+    </div>
+
+    <div id="authMsg"></div>
+
+    <form id="loginForm">
+        <div class="form-group">
+            <label>Mobile Number</label>
+            <input id="loginMobile" type="tel" placeholder="01XXXXXXXXX" required>
+        </div>
+
+        <div class="form-group">
+            <label>Password</label>
+            <input id="loginPassword" type="password" placeholder="Password" required>
+        </div>
+
+        <button class="btn btn-green" type="submit">Login</button>
+    </form>
+
+    <form id="registerForm" class="hidden">
+        <div class="form-group">
+            <label>Full Name</label>
+            <input id="regName" type="text" placeholder="Your Name" required>
+        </div>
+
+        <div class="form-group">
+            <label>Mobile Number</label>
+            <input id="regMobile" type="tel" placeholder="01XXXXXXXXX" required>
+        </div>
+
+        <div class="form-group">
+            <label>Password</label>
+            <input id="regPassword" type="password" placeholder="Minimum 6 characters" minlength="6" required>
+        </div>
+
+        <button class="btn btn-green" type="submit">Create Account</button>
+    </form>
+
+</div>
+</div>
+
+<!-- APP -->
+<div id="app" class="app hidden">
+
+<header>
+    <div class="header-row">
+        <div class="logo">Ludo Income</div>
+        <div class="online">● Online</div>
+    </div>
+</header>
+
+<main class="content">
+
+<!-- HOME -->
+<section id="page-home">
+
+    <div class="card balance-card">
+        <div class="balance-title">Available Balance</div>
+        <div class="balance">৳ <span id="availableBalance">0</span></div>
+
+        <div class="balance-grid">
+            <div class="balance-box">
+                <small>Gaming Balance</small>
+                <strong>৳ <span id="gamingBalance">0</span></strong>
+            </div>
+
+            <div class="balance-box">
+                <small>Winning Balance</small>
+                <strong>৳ <span id="winningBalance">0</span></strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="actions">
+            <button class="action" onclick="showPage('deposit')">💳 Deposit</button>
+            <button class="action" onclick="showPage('withdraw')">💸 Withdraw</button>
+            <button class="action" onclick="showPage('matches')">🏆 Tournament</button>
+            <button class="action" onclick="showPage('history')">📜 History</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">📢 Announcement</div>
+        <div id="announcement" class="notice">
+            স্বাগতম Ludo Income-এ ❤️
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">🏆 Upcoming Matches</div>
+        <div id="homeMatches" class="loading">Loading...</div>
+    </div>
+
+</section>
+
+<!-- MATCHES -->
+<section id="page-matches" class="hidden">
+    <div class="card">
+        <div class="section-title">🏆 Tournament & Matches</div>
+        <div id="matchesList" class="loading">Loading...</div>
+    </div>
+</section>
+
+<!-- DEPOSIT -->
+<section id="page-deposit" class="hidden">
+    <div class="card">
+        <div class="section-title">💳 Deposit</div>
+
+        <div class="notice">
+            টাকা পাঠানোর আগে সঠিক payment number ব্যবহার করুন।
+            Admin approval-এর পর Gaming Balance যোগ হবে।
+        </div>
+
+        <div class="method">
+            <button id="bkashBtn" class="active" onclick="selectMethod('bkash')">bKash</button>
+            <button id="nagadBtn" onclick="selectMethod('nagad')">Nagad</button>
+        </div>
+
+        <div class="form-group">
+            <label>Payment Number</label>
+            <input id="paymentNumber" value="" placeholder="Admin payment number">
+        </div>
+
+        <div class="form-group">
+            <label>Amount</label>
+            <input id="depositAmount" type="number" min="1" placeholder="Amount">
+        </div>
+
+        <div class="form-group">
+            <label>Transaction ID</label>
+            <input id="transactionId" placeholder="Transaction ID">
+        </div>
+
+        <button class="btn btn-green" onclick="submitDeposit()">Submit Deposit</button>
+    </div>
+</section>
+
+<!-- WITHDRAW -->
+<section id="page-withdraw" class="hidden">
+    <div class="card">
+        <div class="section-title">💸 Withdraw</div>
+
+        <div class="notice">
+            Withdraw শুধুমাত্র Winning Balance থেকে করা যাবে।
+        </div>
+
+        <div class="method">
+            <button id="wBkashBtn" class="active" onclick="selectWithdrawMethod('bkash')">bKash</button>
+            <button id="wNagadBtn" onclick="selectWithdrawMethod('nagad')">Nagad</button>
+        </div>
+
+        <div class="form-group">
+            <label>Withdraw Number</label>
+            <input id="withdrawNumber" type="tel" placeholder="01XXXXXXXXX">
+        </div>
+
+        <div class="form-group">
+            <label>Amount</label>
+            <input id="withdrawAmount" type="number" min="1" placeholder="Amount">
+        </div>
+
+        <button class="btn btn-green" onclick="submitWithdraw()">Request Withdraw</button>
+    </div>
+</section>
+
+<!-- HISTORY -->
+<section id="page-history" class="hidden">
+    <div class="card">
+        <div class="section-title">📜 Transaction History</div>
+        <div id="historyList" class="loading">Loading...</div>
+    </div>
+</section>
+
+<!-- WINNING -->
+<section id="page-winning" class="hidden">
+    <div class="card">
+        <div class="section-title">🏆 Winning Verification</div>
+
+        <div class="notice">
+            ম্যাচ জিতলে Match ID, Room ID এবং screenshot submit করুন।
+            Admin verification-এর পর prize Winning Balance-এ যোগ হবে।
+        </div>
+
+        <div class="form-group">
+            <label>Match ID</label>
+            <input id="winningMatchId" type="number" placeholder="Match ID">
+        </div>
+
+        <div class="form-group">
+            <label>Room ID</label>
+            <input id="roomId" placeholder="Room ID">
+        </div>
+
+        <div class="form-group">
+            <label>Winning Screenshot</label>
+            <input id="winningScreenshot" type="file" accept="image/*">
+        </div>
+
+        <button class="btn btn-green" onclick="submitWinning()">Submit Winning</button>
+    </div>
+</section>
+
+<!-- PROFILE -->
+<section id="page-profile" class="hidden">
+    <div class="card">
+        <div class="section-title">👤 Profile</div>
+
+        <div class="profile-row">
+            <span>Name</span>
+            <b id="profileName">-</b>
+        </div>
+
+        <div class="profile-row">
+            <span>Mobile</span>
+            <b id="profileMobile">-</b>
+        </div>
+
+        <div class="profile-row">
+            <span>Referral Code</span>
+            <b id="profileReferral">-</b>
+        </div>
+
+        <br>
+
+        <button class="btn btn-green" onclick="copyReferral()">Copy Referral Code</button>
+        <br><br>
+        <button class="btn btn-red" onclick="logout()">Logout</button>
+    </div>
+</section>
+
+<!-- SUPPORT -->
+<section id="page-support" class="hidden">
+    <div class="card">
+        <div class="section-title">💬 Support</div>
+
+        <div class="form-group">
+            <label>Your Message</label>
+            <textarea id="supportMessage" placeholder="আপনার সমস্যাটি লিখুন..."></textarea>
+        </div>
+
+        <button class="btn btn-green" onclick="sendSupport()">Send Message</button>
+    </div>
+</section>
+
+</main>
+
+<nav>
+    <button id="nav-home" class="active" onclick="showPage('home')">
+        <span class="nav-icon">🏠</span>Home
+    </button>
+
+    <button id="nav-matches" onclick="showPage('matches')">
+        <span class="nav-icon">🏆</span>Match
+    </button>
+
+    <button id="nav-winning" onclick="showPage('winning')">
+        <span class="nav-icon">🎁</span>Winning
+    </button>
+
+    <button id="nav-support" onclick="showPage('support')">
+        <span class="nav-icon">💬</span>Support
+    </button>
+
+    <button id="nav-profile" onclick="showPage('profile')">
+        <span class="nav-icon">👤</span>Profile
+    </button>
+</nav>
+
+</div>
+
+<script>
+/* =========================================================
+   LUDO INCOME FRONTEND
+   ========================================================= */
+
+const API_BASE = "https://income-ludo-1.onrender.com";
+
+let depositMethod = "bkash";
+let withdrawMethod = "bkash";
+
+const $ = id => document.getElementById(id);
+
+function token(){
+    return localStorage.getItem("ludo_income_token");
+}
+
+function headers(){
+    const h = {
+        "Content-Type":"application/json"
+    };
+
+    if(token()){
+        h.Authorization = "Bearer " + token();
+    }
+
+    return h;
+}
+
+async function api(path, options={}){
+    options.headers = {
+        ...headers(),
+        ...(options.headers || {})
+    };
+
+    const res = await fetch(API_BASE + path, options);
+
+    if(res.status === 401){
+        logout();
+        throw new Error("Session expired. Please login again.");
+    }
+
+    let data = {};
+    try{
+        data = await res.json();
+    }catch(e){}
+
+    if(!res.ok){
+        throw new Error(data.message || "Request failed");
+    }
+
+    return data;
+}
+
+/* AUTH */
+
+function showAuth(type){
+    $("loginForm").classList.toggle("hidden", type !== "login");
+    $("registerForm").classList.toggle("hidden", type !== "register");
+
+    $("loginTab").classList.toggle("active", type === "login");
+    $("registerTab").classList.toggle("active", type === "register");
+
+    $("authMsg").innerHTML = "";
+}
+
+function authMessage(text,type="error"){
+    $("authMsg").innerHTML =
+        `<div class="msg ${type}">${escapeHtml(text)}</div>`;
+}
+
+$("loginForm").addEventListener("submit", async e=>{
+    e.preventDefault();
+
+    try{
+        const data = await api("/api/auth/login",{
+            method:"POST",
+            body:JSON.stringify({
+                mobile:$("loginMobile").value.trim(),
+                password:$("loginPassword").value
+            })
+        });
+
+        localStorage.setItem("ludo_income_token", data.token);
+
+        openApp();
+    }catch(err){
+        authMessage(err.message);
+    }
+});
+
+$("registerForm").addEventListener("submit", async e=>{
+    e.preventDefault();
+
+    try{
+        const data = await api("/api/auth/register",{
+            method:"POST",
+            body:JSON.stringify({
+                name:$("regName").value.trim(),
+                mobile:$("regMobile").value.trim(),
+                password:$("regPassword").value
+            })
+        });
+
+        localStorage.setItem("ludo_income_token", data.token);
+
+        openApp();
+    }catch(err){
+        authMessage(err.message);
+    }
+});
+
+function openApp(){
+    $("authScreen").classList.add("hidden");
+    $("app").classList.remove("hidden");
+
+    loadAll();
+}
+
+function logout(){
+    localStorage.removeItem("ludo_income_token");
+    localStorage.removeItem("ludo_income_page");
+
+    $("app").classList.add("hidden");
+    $("authScreen").classList.remove("hidden");
+
+    showAuth("login");
+}
+
+/* PAGES */
+
+const pages = [
+    "home",
+    "matches",
+    "deposit",
+    "withdraw",
+    "history",
+    "winning",
+    "profile",
+    "support"
+];
+
+function showPage(page){
+    pages.forEach(p=>{
+        const el = $("page-" + p);
+        if(el) el.classList.toggle("hidden", p !== page);
+    });
+
+    document.querySelectorAll("nav button").forEach(b=>{
+        b.classList.remove("active");
+    });
+
+    const nav = $("nav-" + page);
+    if(nav) nav.classList.add("active");
+
+    localStorage.setItem("ludo_income_page",page);
+
+    window.scrollTo({
+        top:0,
+        behavior:"smooth"
+    });
+}
+
+/* USER */
+
+async function loadUser(){
+    try{
+        const data = await api("/api/user/profile");
+        const user = data.user || data;
+
+        $("profileName").textContent = user.name || "-";
+        $("profileMobile").textContent = user.mobile || "-";
+        $("profileReferral").textContent =
+            user.referral_code || user.referralCode || "-";
+    }catch(e){
+        console.log(e);
+    }
+}
+
+async function loadBalance(){
+    try{
+        const data = await api("/api/user/balance");
+        const b = data.balance || data;
+
+        const gaming = Number(
+            b.gaming_balance ?? b.gamingBalance ?? 0
+        );
+
+        const winning = Number(
+            b.winning_balance ?? b.winningBalance ?? 0
+        );
+
+        $("gamingBalance").textContent = money(gaming);
+        $("winningBalance").textContent = money(winning);
+        $("availableBalance").textContent = money(gaming + winning);
+
+    }catch(e){
+        console.log(e);
+    }
+}
+
+/* MATCHES */
+
+async function loadMatches(){
+    try{
+        const data = await api("/api/matches");
+        const matches = Array.isArray(data)
+            ? data
+            : (data.matches || []);
+
+        renderMatches(matches);
+    }catch(e){
+        $("matchesList").innerHTML =
+            `<div class="empty">ম্যাচ লোড করা যাচ্ছে না।</div>`;
+
+        $("homeMatches").innerHTML =
+            `<div class="empty">ম্যাচ লোড করা যাচ্ছে না।</div>`;
+    }
+}
+
+function renderMatches(matches){
+
+    if(!matches.length){
+        $("matchesList").innerHTML =
+            `<div class="empty">কোনো ম্যাচ available নেই।</div>`;
+
+        $("homeMatches").innerHTML =
+            `<div class="empty">কোনো upcoming match নেই।</div>`;
+
+        return;
+    }
+
+    const html = matches.map(m=>{
+        const players =
+            m.players ??
+            m.player_count ??
+            m.playerCount ??
+            0;
+
+        const maxPlayers =
+            m.max_players ??
+            m.maxPlayers ??
+            0;
+
+        const fee =
+            m.entry_fee ??
+            m.entryFee ??
+            0;
+
+        const prize = m.prize ?? 0;
+
+        const status = m.status || "upcoming";
+
+        return `
+        <div class="match">
+            <div class="match-top">
+                <div>
+                    <div class="match-title">
+                        ${escapeHtml(m.title || "Ludo Match")}
+                    </div>
+                    <small>Match ID: ${m.id}</small>
+                </div>
+
+                <span class="badge">${escapeHtml(status)}</span>
+            </div>
+
+            <div class="match-info">
+                <div class="info">
+                    <small>Entry Fee</small>
+                    <b>৳${money(fee)}</b>
+                </div>
+
+                <div class="info">
+                    <small>Prize</small>
+                    <b>৳${money(prize)}</b>
+                </div>
+
+                <div class="info">
+                    <small>Players</small>
+                    <b>${players}/${maxPlayers}</b>
+                </div>
+
+                <div class="info">
+                    <small>Time</small>
+                    <b>${escapeHtml(String(m.time || "TBA"))}</b>
+                </div>
+            </div>
+
+            <button
+                class="btn btn-green"
+                onclick="joinMatch(${Number(m.id)})"
+            >
+                Join Match
+            </button>
+        </div>
+        `;
+    }).join("");
+
+    $("matchesList").innerHTML = html;
+    $("homeMatches").innerHTML = html;
+}
+
+async function joinMatch(id){
+
+    if(!confirm("আপনি কি এই ম্যাচে Join করতে চান?")) return;
+
+    try{
+        const data = await api("/api/matches/" + id + "/join",{
+            method:"POST"
+        });
+
+        alert(data.message || "Match joined successfully");
+
+        await loadBalance();
+        await loadMatches();
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+/* DEPOSIT */
+
+function selectMethod(method){
+    depositMethod = method;
+
+    $("bkashBtn").classList.toggle("active",method === "bkash");
+    $("nagadBtn").classList.toggle("active",method === "nagad");
+}
+
+async function submitDeposit(){
+
+    const amount = Number($("depositAmount").value);
+    const transactionId = $("transactionId").value.trim();
+
+    if(!amount || amount <= 0){
+        alert("সঠিক amount দিন");
+        return;
+    }
+
+    if(!transactionId){
+        alert("Transaction ID দিন");
+        return;
+    }
+
+    try{
+        const data = await api("/api/deposit",{
+            method:"POST",
+            body:JSON.stringify({
+                method:depositMethod,
+                amount,
+                transaction_id:transactionId
+            })
+        });
+
+        alert(data.message || "Deposit submitted");
+
+        $("depositAmount").value="";
+        $("transactionId").value="";
+
+        showPage("history");
+        loadHistory();
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+/* WITHDRAW */
+
+function selectWithdrawMethod(method){
+    withdrawMethod = method;
+
+    $("wBkashBtn").classList.toggle("active",method === "bkash");
+    $("wNagadBtn").classList.toggle("active",method === "nagad");
+}
+
+async function submitWithdraw(){
+
+    const number = $("withdrawNumber").value.trim();
+    const amount = Number($("withdrawAmount").value);
+
+    if(!number){
+        alert("Withdraw number দিন");
+        return;
+    }
+
+    if(!amount || amount <= 0){
+        alert("সঠিক amount দিন");
+        return;
+    }
+
+    try{
+        const data = await api("/api/withdraw",{
+            method:"POST",
+            body:JSON.stringify({
+                method:withdrawMethod,
+                number,
+                amount
+            })
+        });
+
+        alert(data.message || "Withdraw request submitted");
+
+        $("withdrawNumber").value="";
+        $("withdrawAmount").value="";
+
+        await loadBalance();
+        showPage("history");
+        loadHistory();
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+/* HISTORY */
+
+async function loadHistory(){
+
+    try{
+        const data = await api("/api/transactions");
+
+        const list = Array.isArray(data)
+            ? data
+            : (data.transactions || []);
+
+        if(!list.length){
+            $("historyList").innerHTML =
+                `<div class="empty">কোনো transaction নেই।</div>`;
+            return;
+        }
+
+        $("historyList").innerHTML = list.map(t=>{
+
+            const amount = Number(t.amount || 0);
+            const type = String(t.type || t.kind || "").toLowerCase();
+
+            const negative =
+                type.includes("withdraw") ||
+                type.includes("entry");
+
+            return `
+            <div class="history-item">
+                <div>
+                    <b>${escapeHtml(t.type || "Transaction")}</b>
+                    <br>
+                    <small>${escapeHtml(String(
+                        t.status || "pending"
+                    ))}</small>
+                </div>
+
+                <div class="${negative ? "minus" : "plus"}">
+                    ${negative ? "-" : "+"}৳${money(amount)}
+                </div>
+            </div>
+            `;
+        }).join("");
+
+    }catch(e){
+        $("historyList").innerHTML =
+            `<div class="empty">History পাওয়া যাচ্ছে না।</div>`;
+    }
+}
+
+/* WINNING */
+
+async function submitWinning(){
+
+    const matchId = $("winningMatchId").value;
+    const roomId = $("roomId").value.trim();
+    const file = $("winningScreenshot").files[0];
+
+    if(!matchId || !roomId || !file){
+        alert("সব তথ্য পূরণ করুন");
+        return;
+    }
+
+    try{
+
+        const form = new FormData();
+
+        form.append("match_id",matchId);
+        form.append("room_id",roomId);
+        form.append("screenshot",file);
+
+        const res = await fetch(
+            API_BASE + "/api/winning",
+            {
+                method:"POST",
+                headers:{
+                    Authorization:"Bearer " + token()
+                },
+                body:form
+            }
+        );
+
+        const data = await res.json();
+
+        if(!res.ok){
+            throw new Error(data.message || "Winning submit failed");
+        }
+
+        alert(data.message || "Winning submitted successfully");
+
+        $("winningMatchId").value="";
+        $("roomId").value="";
+        $("winningScreenshot").value="";
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+/* SUPPORT */
+
+async function sendSupport(){
+
+    const message = $("supportMessage").value.trim();
+
+    if(!message){
+        alert("Message লিখুন");
+        return;
+    }
+
+    try{
+
+        const data = await api("/api/support",{
+            method:"POST",
+            body:JSON.stringify({message})
+        });
+
+        alert(data.message || "Message sent");
+
+        $("supportMessage").value="";
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+/* REFERRAL */
+
+function copyReferral(){
+
+    const code = $("profileReferral").textContent;
+
+    if(!code || code === "-"){
+        alert("Referral code পাওয়া যায়নি");
+        return;
+    }
+
+    navigator.clipboard.writeText(code)
+        .then(()=>alert("Referral code copied"))
+        .catch(()=>alert(code));
+}
+
+/* LOAD */
+
+async function loadAll(){
+
+    await Promise.all([
+        loadUser(),
+        loadBalance(),
+        loadMatches(),
+        loadHistory()
+    ]);
+
+    showPage(
+        localStorage.getItem("ludo_income_page") || "home"
+    );
+}
+
+/* HELPERS */
+
+function money(value){
+    return Number(value || 0).toLocaleString("en-BD");
+}
+
+function escapeHtml(value){
+    return String(value ?? "")
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+}
+
+/* START */
+
+if(token()){
+    openApp();
+}else{
+    $("authScreen").classList.remove("hidden");
+    $("app").classList.add("hidden");
+}
+
+</script>
+
+</body>
+  </html>
