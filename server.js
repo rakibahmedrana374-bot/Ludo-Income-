@@ -170,7 +170,13 @@ app.post("/api/admin/announcements/:id/toggle",admin,(req,res)=>{const db=readDB
 app.delete("/api/admin/announcements/:id",admin,(req,res)=>{const db=readDB();db.announcements=db.announcements.filter(x=>x.id!=req.params.id);writeDB(db);res.json({message:"Deleted"})});
 
 app.use("/uploads",express.static(UPLOAD_DIR));
-app.get("/admin",(req,res)=>res.sendFile(path.join(ROOT,"public","admin.html")));
+app.get("/admin",(req,res)=>{
+  const publicAdmin=path.join(ROOT,"public","admin.html");
+  const rootAdmin=path.join(ROOT,"admin.html");
+  if(fs.existsSync(publicAdmin)) return res.sendFile(publicAdmin);
+  if(fs.existsSync(rootAdmin)) return res.sendFile(rootAdmin);
+  return res.status(404).send("Admin panel file not found");
+});
 app.get("/",(req,res)=>res.sendFile(path.join(ROOT,"index.html")));
 app.use(express.static(ROOT));
 app.use((req,res)=>res.status(404).send("Not Found"));
