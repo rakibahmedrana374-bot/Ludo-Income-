@@ -332,10 +332,40 @@ nav button.active{
 }
 
 .statement-item{display:flex;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid #eef2f7}.statement-item:last-child{border-bottom:0}.statement-main{min-width:0}.statement-title{font-weight:800}.statement-meta{font-size:11px;color:#64748b;margin-top:4px;line-height:1.45}.statement-amount{font-weight:900;white-space:nowrap}.plus{color:#16a34a}.minus{color:#dc2626}.profile-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}.profile-avatar{width:64px;height:64px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:34px;overflow:hidden;border:2px solid #e5e7eb}.profile-avatar img{width:100%;height:100%;object-fit:cover}.profile-stat{display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:13px;margin:8px 0}.uid-copy{display:flex;align-items:center;gap:7px}.tiny-copy{border:0;background:#e5e7eb;border-radius:7px;padding:6px 8px;font-weight:800;font-size:11px}.profile-link{display:block;text-decoration:none}.settings-note{font-size:12px;color:#64748b;margin:6px 0 12px}
+
+/* LudoBest-style app download landing */
+.app-download-screen{position:fixed;inset:0;z-index:9999;background:linear-gradient(180deg,#062f1d 0%,#0b7a45 48%,#f6f8f7 48%,#f6f8f7 100%);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
+.app-download-card{width:min(430px,100%);background:#fff;border-radius:26px;padding:24px 20px 22px;text-align:center;box-shadow:0 18px 55px rgba(0,0,0,.24)}
+.download-logo{width:96px;height:96px;border-radius:24px;margin:-2px auto 14px;object-fit:cover;box-shadow:0 8px 22px rgba(0,0,0,.16);background:#fff}
+.download-title{font-size:28px;font-weight:950;color:#10231a;margin:4px 0}.download-sub{color:#64748b;font-size:14px;margin-bottom:18px}
+.download-btn{width:100%;border:0;border-radius:14px;padding:14px 18px;background:#0b7a45;color:#fff;font-size:17px;font-weight:900;cursor:pointer;box-shadow:0 7px 16px rgba(11,122,69,.25)}
+.website-btn{width:100%;border:1px solid #dbe5df;border-radius:14px;padding:12px 18px;background:#fff;color:#0b7a45;font-weight:850;cursor:pointer;margin-top:10px}
+.download-points{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:18px 0;text-align:left}.download-point{background:#f6faf8;border-radius:12px;padding:11px;font-size:12px;color:#334155;font-weight:750}.download-point b{display:block;font-size:14px;color:#0f241a;margin-bottom:3px}
+.install-help{display:none;text-align:left;background:#fff8e8;border:1px solid #f5d98c;border-radius:13px;padding:12px;margin-top:12px;font-size:12px;color:#5b460f;line-height:1.55}.install-help.show{display:block}
 </style>
 </head>
 
 <body>
+
+<!-- APP DOWNLOAD LANDING -->
+<div id="appDownloadScreen" class="app-download-screen">
+  <div class="app-download-card">
+    <img class="download-logo" src="/icons/icon-192.png" alt="Ludo Income">
+    <div class="download-title">Ludo Income</div>
+    <div class="download-sub">Play • Win • Earn — Install the app for a faster experience</div>
+    <button class="download-btn" onclick="downloadLudoIncome()">📲 Download App</button>
+    <button class="website-btn" onclick="continueToWebsite()">🌐 Continue on Website</button>
+    <div class="download-points">
+      <div class="download-point"><b>⚡ Fast Access</b>Open from your home screen.</div>
+      <div class="download-point"><b>🔐 Same Account</b>Your website account stays the same.</div>
+      <div class="download-point"><b>📱 App Mode</b>Clean standalone app experience.</div>
+      <div class="download-point"><b>🔔 Easy Return</b>Launch Ludo Income anytime.</div>
+    </div>
+    <div id="installHelp" class="install-help">
+      <b>Android Chrome:</b> উপরের <b>⋮</b> menu চাপুন → <b>Install app</b> অথবা <b>Add to Home screen</b> নির্বাচন করুন। তারপর Home Screen থেকে Ludo Income খুলুন।
+    </div>
+  </div>
+</div>
 
 <!-- AUTH -->
 <div id="authScreen" class="auth">
@@ -343,6 +373,7 @@ nav button.active{
 
     <div class="auth-logo">Ludo Income</div>
     <div class="auth-sub">Play • Win • Earn</div>
+    <button id="installAppBtnAuth" type="button" onclick="installLudoIncome()" style="display:inline-block;border:0;border-radius:10px;padding:10px 16px;margin:10px 0 14px;background:#0b7a45;color:#fff;font-weight:800;cursor:pointer">📲 Download / Install App</button>
 
     <div class="auth-tabs">
         <button id="loginTab" class="active" onclick="showAuth('login')">Login</button>
@@ -393,7 +424,7 @@ nav button.active{
 <header>
     <div class="header-row">
         <div class="logo">Ludo Income</div>
-            <button id="installAppBtn" type="button" onclick="installLudoIncome()" style="display:none;border:0;border-radius:10px;padding:8px 10px;background:#0b7a45;color:#fff;font-weight:700;cursor:pointer">📲 App</button>
+            <button id="installAppBtn" type="button" onclick="installLudoIncome()" style="display:inline-block;border:0;border-radius:10px;padding:8px 10px;background:#0b7a45;color:#fff;font-weight:700;cursor:pointer">📲 App</button>
         <div class="online">● Online</div>
     </div>
 </header>
@@ -1081,29 +1112,51 @@ if(token()){
 }
 
 
-// Ludo Income PWA install support
+// Ludo Income app download/install support
 let deferredInstallPrompt = null;
+function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
+function continueToWebsite(){
+  const screen=document.getElementById('appDownloadScreen');
+  if(screen) screen.style.display='none';
+}
+function hideDownloadScreen(){
+  const screen=document.getElementById('appDownloadScreen');
+  if(screen) screen.style.display='none';
+}
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   deferredInstallPrompt = event;
-  const btn = document.getElementById('installAppBtn');
-  if (btn && !window.matchMedia('(display-mode: standalone)').matches) btn.style.display = 'inline-block';
 });
 window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
-  const btn = document.getElementById('installAppBtn');
-  if (btn) btn.style.display = 'none';
+  hideDownloadScreen();
+  const btn=document.getElementById('installAppBtn');
+  const authBtn=document.getElementById('installAppBtnAuth');
+  if(btn) btn.style.display='none';
+  if(authBtn) authBtn.style.display='none';
 });
-async function installLudoIncome() {
-  if (!deferredInstallPrompt) {
-    alert('Install optionটি Chrome-এর browser menu থেকে পাওয়া যাবে: ⋮ → Add to Home screen / Install app');
+async function downloadLudoIncome(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt=null;
     return;
   }
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
-  const btn = document.getElementById('installAppBtn');
-  if (btn) btn.style.display = 'none';
+  const help=document.getElementById('installHelp');
+  if(help) help.classList.add('show');
+}
+async function installLudoIncome(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt=null;
+    return;
+  }
+  const help=document.getElementById('installHelp');
+  if(help) help.classList.add('show');
+}
+if(!isStandalone()){
+  // The landing screen intentionally remains visible until the user chooses Download App or Website.
 }
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
