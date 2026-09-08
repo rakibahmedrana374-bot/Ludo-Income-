@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#16a34a">
-<meta name="description" content="Ludo Income - Play • Win • Earn">
-<link rel="icon" type="image/svg+xml" href="assets/ludo-income-logo.svg">
-<link rel="apple-touch-icon" href="assets/ludo-income-logo.svg">
 <title>Ludo Income</title>
 
 <style>
@@ -41,10 +38,7 @@ header{
     justify-content:space-between;
     align-items:center;
 }
-.logo{
-    font-size:24px;
-    font-weight:900;
-}
+.brand{display:flex;align-items:center;gap:10px}.brand img{width:42px;height:42px;display:block;border-radius:11px}.logo{font-size:24px;font-weight:900}
 .online{
     background:#ffffff22;
     padding:6px 10px;
@@ -52,7 +46,7 @@ header{
     font-size:12px;
 }
 
-.content{padding:14px 14px 90px}
+.content{padding:14px 14px 90px}.cover-card{margin:0 0 14px;border-radius:18px;overflow:hidden;background:#dcfce7;box-shadow:0 3px 12px #0000000d}.cover-card img{display:block;width:100%;height:auto}
 
 .card{
     background:white;
@@ -324,14 +318,6 @@ nav button.active{
     padding:20px;
     color:#64748b;
 }
-
-/* BRAND ASSETS - relative paths work on GitHub Pages, Render and any subfolder */
-.brand-logo{width:58px;height:58px;display:block;object-fit:contain;flex:0 0 auto}
-.brand-cover{width:100%;height:145px;object-fit:cover;display:block;border-radius:16px;margin-bottom:14px}
-.header-brand{display:flex;align-items:center;gap:10px}
-.header-brand .brand-logo{width:42px;height:42px}
-.auth-brand{text-align:center;margin-bottom:10px}
-.auth-brand img{width:88px;height:88px;object-fit:contain;display:inline-block}
 </style>
 </head>
 
@@ -341,9 +327,6 @@ nav button.active{
 <div id="authScreen" class="auth">
 <div class="auth-card">
 
-    <div class="auth-brand">
-        <img src="assets/ludo-income-logo.svg" alt="Ludo Income logo" width="88" height="88">
-    </div>
     <div class="auth-logo">Ludo Income</div>
     <div class="auth-sub">Play • Win • Earn</div>
 
@@ -395,20 +378,18 @@ nav button.active{
 
 <header>
     <div class="header-row">
-        <div class="header-brand">
-            <img class="brand-logo" src="assets/ludo-income-logo.svg" alt="Ludo Income logo" width="42" height="42">
-            <div class="logo">Ludo Income</div>
-        </div>
+        <div class="brand"><img src="assets/logo.svg" alt="Ludo Income logo"><div class="logo">Ludo Income</div></div>
         <div class="online">● Online</div>
     </div>
 </header>
 
 <main class="content">
 
+<!-- BRAND COVER -->
+<div class="cover-card"><img src="assets/cover.svg" alt="Ludo Income cover"></div>
+
 <!-- HOME -->
 <section id="page-home">
-
-    <img class="brand-cover" src="assets/ludo-income-cover.svg" alt="Ludo Income cover" width="500" height="145">
 
     <div class="card balance-card">
         <div class="balance-title">Available Balance</div>
