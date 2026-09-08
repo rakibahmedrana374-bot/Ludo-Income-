@@ -1,27 +1,41 @@
-# Ludo Income — Render Ready Admin
+# Ludo Income — Render Ready
 
-This package keeps the supplied `index.html` as the user app and adds a Node/Express backend plus a green-button admin panel.
+This ZIP is structured for a Node/Express Render Web Service.
 
-## Render
-Build Command: `npm install`
-Start Command: `npm start`
-Root Directory: leave empty.
+## Project structure
+
+index.html
+server.js
+package.json
+render.yaml
+public/admin.html
+data/database.json
+uploads/
+
+## Render settings
+
+Build Command: npm install
+Start Command: npm start
+Root Directory: leave empty
 
 ## URLs
-User: `/`
-Admin: `/admin`
-Health: `/api/health`
 
-## Admin login
-Set environment variables in Render:
+User: /
+Admin: /admin
+Health: /api/health
+
+## Admin environment variables
+
 ADMIN_MOBILE=your admin mobile
 ADMIN_PASSWORD=your strong password
 JWT_SECRET=your long random secret
 
-If ADMIN_* are not set, the demo defaults are 01700000000 / ChangeMe123!; change them before real use.
-
-## GitHub
-Repository root must contain `index.html`, `server.js`, `package.json`, `public/admin.html`, `data/`, and `uploads/`. Do not upload only the ZIP file.
+Do not use demo/default admin credentials in production.
 
 ## Important
-JSON storage is suitable for testing/demo only. A production money-handling service should use a persistent database, secure payment verification, audit logs, rate limiting, backups, and comply with applicable laws/payment-provider rules.
+
+Upload/extract the FILES inside this ZIP to the GitHub repository root. Do not upload only the ZIP file.
+
+The frontend uses the same server origin for API requests, so it does not depend on the old Render URL.
+
+JSON storage is suitable for testing/demo only. For a real-money service, use a persistent database, secure payment verification, audit logs, rate limiting, backups, and comply with applicable laws/payment-provider rules.
