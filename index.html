@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#16a34a">
 <title>Ludo Income</title>
-<link rel="icon" type="image/png" href="logo.png">
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -40,17 +39,8 @@ header{
     align-items:center;
 }
 .logo{
-    display:flex;
-    align-items:center;
-    gap:8px;
     font-size:24px;
     font-weight:900;
-}
-.logo img{
-    width:42px;
-    height:42px;
-    object-fit:contain;
-    display:block;
 }
 .online{
     background:#ffffff22;
@@ -282,14 +272,10 @@ nav button.active{
 }
 .auth-logo{
     text-align:center;
+    color:#16a34a;
+    font-size:32px;
+    font-weight:900;
     margin-bottom:5px;
-}
-.auth-logo img{
-    width:150px;
-    height:150px;
-    object-fit:contain;
-    display:block;
-    margin:0 auto 4px;
 }
 .auth-sub{
     text-align:center;
@@ -335,6 +321,38 @@ nav button.active{
     padding:20px;
     color:#64748b;
 }
+
+/* LUDO INCOME COVER / BANNER */
+.cover-banner{
+    width:100%;
+    margin:0 0 14px;
+    border-radius:16px;
+    overflow:hidden;
+    background:#000;
+    box-shadow:0 4px 14px #0002;
+}
+.cover-banner img{
+    display:block;
+    width:100%;
+    height:auto;
+    max-height:300px;
+    object-fit:cover;
+}
+.auth-cover{
+    width:100%;
+    border-radius:16px;
+    overflow:hidden;
+    margin-bottom:18px;
+    background:#000;
+}
+.auth-cover img{
+    display:block;
+    width:100%;
+    height:auto;
+    max-height:260px;
+    object-fit:cover;
+}
+
 </style>
 </head>
 
@@ -344,9 +362,9 @@ nav button.active{
 <div id="authScreen" class="auth">
 <div class="auth-card">
 
-    <div class="auth-logo">
-        <img src="logo.png" alt="Ludo Income Logo">
-    </div>
+    <div class="auth-cover"><img src="assets/ludo-income-cover.jpg" alt="Ludo Income Cover"></div>
+
+    <div class="auth-logo">Ludo Income</div>
     <div class="auth-sub">Play • Win • Earn</div>
 
     <div class="auth-tabs">
@@ -397,10 +415,14 @@ nav button.active{
 
 <header>
     <div class="header-row">
-        <div class="logo"><img src="logo.png" alt="Ludo Income Logo"><span>Ludo Income</span></div>
+        <div class="logo">Ludo Income</div>
         <div class="online">● Online</div>
     </div>
 </header>
+
+<div class="cover-banner">
+    <img src="assets/ludo-income-cover.jpg" alt="Ludo Income Cover Banner">
+</div>
 
 <main class="content">
 
