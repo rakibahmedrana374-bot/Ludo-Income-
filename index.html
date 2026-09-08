@@ -10,9 +10,11 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{
     font-family:Arial,"Noto Sans Bengali",sans-serif;
-    background:#f1f5f9;
+    background:#eef2f4;
     color:#111827;
+    -webkit-font-smoothing:antialiased;
 }
+::selection{background:#bbf7d0;color:#14532d}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 .hidden{display:none!important}
@@ -25,9 +27,9 @@ button{cursor:pointer}
 }
 
 header{
-    background:linear-gradient(135deg,#16a34a,#15803d);
+    background:linear-gradient(135deg,#19a957 0%,#139447 100%);
     color:white;
-    padding:18px 16px;
+    padding:16px 18px;
     position:sticky;
     top:0;
     z-index:10;
@@ -38,7 +40,21 @@ header{
     justify-content:space-between;
     align-items:center;
 }
-.brand{display:flex;align-items:center;gap:10px}.brand img{width:42px;height:42px;display:block;border-radius:11px}.logo{font-size:24px;font-weight:900}
+.logo{
+    font-size:23px;
+    font-weight:900;
+    letter-spacing:-.4px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.logo-mark{
+    width:38px;height:38px;border-radius:11px;
+    background:rgba(255,255,255,.18);
+    display:grid;place-items:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25);
+}
+.logo-mark svg{width:27px;height:27px}
 .online{
     background:#ffffff22;
     padding:6px 10px;
@@ -46,23 +62,35 @@ header{
     font-size:12px;
 }
 
-.content{padding:14px 14px 90px}.cover-card{margin:0 0 14px;border-radius:18px;overflow:hidden;background:#dcfce7;box-shadow:0 3px 12px #0000000d}.cover-card img{display:block;width:100%;height:auto}
+.content{padding:14px 14px 92px}
+.cover{
+    height:58px;
+    border-radius:15px;
+    overflow:hidden;
+    margin-bottom:14px;
+    position:relative;
+    background:linear-gradient(135deg,#dcfce7,#bbf7d0);
+    box-shadow:0 2px 8px rgba(22,163,74,.08);
+}
+.cover-art{position:absolute;inset:0;width:100%;height:100%}
+.cover-title{position:absolute;left:18px;top:50%;transform:translateY(-50%);font-weight:900;color:#166534;font-size:16px}
+.cover-sub{position:absolute;right:17px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:#15803d;background:rgba(255,255,255,.58);padding:6px 9px;border-radius:999px}
 
 .card{
     background:white;
-    border-radius:16px;
+    border-radius:18px;
     padding:16px;
     margin-bottom:14px;
-    box-shadow:0 3px 12px #0000000d;
+    box-shadow:0 4px 18px rgba(15,23,42,.055);
 }
 
 .balance-card{
-    background:linear-gradient(135deg,#14532d,#16a34a);
+    background:linear-gradient(135deg,#14532d 0%,#15803d 45%,#16a34a 100%);
     color:white;
 }
 .balance-title{font-size:13px;opacity:.9}
 .balance{
-    font-size:32px;
+    font-size:34px;
     font-weight:900;
     margin:5px 0 15px;
 }
@@ -241,7 +269,7 @@ nav{
 nav button{
     border:0;
     background:white;
-    padding:10px 3px;
+    padding:10px 3px 9px;
     color:#64748b;
     font-size:11px;
 }
@@ -249,7 +277,7 @@ nav button.active{
     color:#16a34a;
     font-weight:900;
 }
-.nav-icon{font-size:19px;display:block;margin-bottom:2px}
+.nav-icon{font-size:20px;display:block;margin-bottom:3px;line-height:1}
 
 .auth{
     min-height:100vh;
@@ -378,18 +406,49 @@ nav button.active{
 
 <header>
     <div class="header-row">
-        <div class="brand"><img src="assets/logo.svg" alt="Ludo Income logo"><div class="logo">Ludo Income</div></div>
+        <div class="logo">
+            <span class="logo-mark" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none">
+                    <rect x="7" y="7" width="50" height="50" rx="12" fill="white" opacity=".96"/>
+                    <path d="M18 28h28v19H18z" fill="#16a34a"/>
+                    <path d="M14 29 32 15l18 14" stroke="#15803d" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="25" cy="37" r="4" fill="white"/><circle cx="39" cy="37" r="4" fill="white"/>
+                </svg>
+            </span>
+            <span>Ludo Income</span>
+        </div>
         <div class="online">● Online</div>
     </div>
 </header>
 
 <main class="content">
 
-<!-- BRAND COVER -->
-<div class="cover-card"><img src="assets/cover.svg" alt="Ludo Income cover"></div>
-
 <!-- HOME -->
 <section id="page-home">
+
+    <div class="cover" aria-label="Ludo Income cover">
+        <svg class="cover-art" viewBox="0 0 800 150" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+                <linearGradient id="cg" x1="0" x2="1">
+                    <stop offset="0" stop-color="#dcfce7"/><stop offset="1" stop-color="#bbf7d0"/>
+                </linearGradient>
+            </defs>
+            <rect width="800" height="150" fill="url(#cg)"/>
+            <g opacity=".55">
+                <circle cx="710" cy="75" r="58" fill="#86efac"/>
+                <circle cx="710" cy="75" r="37" fill="#4ade80"/>
+                <circle cx="710" cy="75" r="16" fill="#fef08a"/>
+                <circle cx="110" cy="35" r="20" fill="#facc15"/>
+                <circle cx="150" cy="115" r="25" fill="#60a5fa"/>
+                <circle cx="220" cy="45" r="18" fill="#f87171"/>
+            </g>
+            <g fill="none" stroke="#16a34a" stroke-width="5" opacity=".18">
+                <path d="M0 115C120 65 210 150 330 96S570 35 800 110"/>
+            </g>
+        </svg>
+        <div class="cover-title">🎲 Ludo Income</div>
+        <div class="cover-sub">Play • Win • Earn</div>
+    </div>
 
     <div class="card balance-card">
         <div class="balance-title">Available Balance</div>
