@@ -7,7 +7,7 @@
 <div id="main" class="wrap hide"><div class="top"><h1>🎮 Ludo Income Admin Panel</h1><small>Management Dashboard</small></div>
 <div class="grid"><div class="stat">Users<b id="sUsers">0</b></div><div class="stat">Gaming Balance<b>৳<span id="sGaming">0</span></b></div><div class="stat">Winning Balance<b>৳<span id="sWinning">0</span></b></div><div class="stat">Pending<b id="sPending">0</b></div></div>
 <div class="tabs">
-<button class="btn green" onclick="tab('overview')">Overview</button><button class="btn green" onclick="tab('users')">Users</button><button class="btn green" onclick="tab('deposits')">Deposits</button><button class="btn green" onclick="tab('withdraws')">Withdraws</button><button class="btn green" onclick="tab('matches')">Matches</button><button class="btn green" onclick="tab('winnings')">Winnings</button><button class="btn green" onclick="tab('support')">Support</button><button class="btn green" onclick="tab('ann')">Announcement</button><button class="btn red" onclick="logout()">Logout</button>
+<button class="btn green" onclick="tab('overview')">Overview</button><button class="btn green" onclick="tab('users')">Users</button><button class="btn green" onclick="tab('deposits')">Deposits</button><button class="btn green" onclick="tab('withdraws')">Withdraws</button><button class="btn green" onclick="tab('matches')">Matches</button><button class="btn green" onclick="tab('winnings')">Winnings</button><button class="btn green" onclick="tab('support')">Support</button><button class="btn green" onclick="tab('ann')">Announcement</button><button class="btn gray" onclick="tab(currentTab)">Refresh</button><button class="btn red" onclick="logout()">Logout</button>
 </div>
 <div id="content"></div></div>
 <script>
@@ -15,9 +15,10 @@ const API="/api";let T=localStorage.getItem("li_admin");
 async function req(p,o={}){o.headers={...(o.headers||{}),Authorization:"Bearer "+T,"Content-Type":"application/json"};let r=await fetch(API+p,o),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||"Request failed");return d}
 function money(n){return Number(n||0).toLocaleString("en-BD")}
 async function login(){try{let d=await fetch(API+"/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mobile:am.value,password:ap.value})}).then(r=>r.json());if(!d.token)throw Error(d.message||"Login failed");T=d.token;localStorage.setItem("li_admin",T);show();}catch(e){lm.textContent=e.message}}
-function show(){loginDiv=false;document.getElementById("login").classList.add("hide");document.getElementById("main").classList.remove("hide");tab("overview")}
+function show(){document.getElementById("login").classList.add("hide");document.getElementById("main").classList.remove("hide");tab("overview")}
 function logout(){localStorage.removeItem("li_admin");location.reload()}
-async function tab(x){let c=document.getElementById("content");try{
+let currentTab="overview";
+async function tab(x){currentTab=x;let c=document.getElementById("content");try{
 if(x==="overview"){let d=await req("/admin/stats");c.innerHTML="<div class='panel'><h2>Dashboard Overview</h2><p>System is connected and ready.</p></div>";sUsers.textContent=d.users;sGaming.textContent=money(d.gaming_balance);sWinning.textContent=money(d.winning_balance);sPending.textContent=d.pending_requests}
 if(x==="users"){let d=await req("/admin/users");c.innerHTML="<div class='panel'><h2>Users</h2><input class='input' id='us' placeholder='Search name/mobile' oninput='users()'><div id='ul'></div></div>";window.users=async()=>{let q=us.value;let z=await req("/admin/users?search="+encodeURIComponent(q));ul.innerHTML=z.users.map(u=>`<div class=item><b>#${u.id} ${esc(u.name)}</b><br>${esc(u.mobile)}<br>Gaming: ৳${money(u.gaming_balance)} | Winning: ৳${money(u.winning_balance)}<br><span>${u.blocked?"🚫 Blocked":"✅ Active"}</span><div class=actions><button class="btn green" onclick="block(${u.id},${!u.blocked})">${u.blocked?"Unblock":"Block"}</button><button class="btn green" onclick="adjust(${u.id})">Adjust Balance</button></div></div>`).join("")};users()}
 if(x==="deposits"){let d=await req("/admin/deposits");c.innerHTML="<div class=panel><h2>Deposit Requests</h2>"+d.items.map(t=>`<div class=item>#${t.id} ${esc(t.user)} — ৳${money(t.amount)} — ${esc(t.method||"")} — ${esc(t.transaction_id||"")} — <b>${t.status}</b>${t.status==="pending"?`<div class=actions><button class="btn green" onclick="dec('deposits',${t.id},'approve')">Approve</button><button class="btn red" onclick="dec('deposits',${t.id},'reject')">Reject</button></div>`:""}</div>`).join("")+"</div>"}
@@ -27,14 +28,14 @@ if(x==="winnings"){let d=await req("/admin/winnings");c.innerHTML="<div class=pa
 if(x==="support"){let d=await req("/admin/support");c.innerHTML="<div class=panel><h2>Support Messages</h2>"+d.items.map(s=>`<div class=item>#${s.id} ${esc(s.user)}<p>${esc(s.message)}</p><textarea id="r${s.id}" class=input placeholder="Reply">${esc(s.reply||"")}</textarea><button class="btn green" onclick="reply(${s.id})">Save Reply</button></div>`).join("")+"</div>"}
 if(x==="ann"){let d=await req("/admin/announcements");c.innerHTML="<div class=panel><h2>Announcement</h2><textarea id=at class=input placeholder='Announcement text'></textarea><button class='btn green' onclick='addAnn()'>Create</button></div><div class=panel>"+d.items.map(a=>`<div class=item>#${a.id} ${esc(a.text)} — ${a.enabled?"Enabled":"Disabled"} <div class=actions><button class="btn green" onclick="toggleAnn(${a.id})">${a.enabled?"Disable":"Enable"}</button><button class="btn red" onclick="delAnn(${a.id})">Delete</button></div></div>`).join("")+"</div>"}
 }catch(e){c.innerHTML="<div class=panel>"+esc(e.message)+"</div>"}}
-async function block(id,b){await req("/admin/users/"+id+"/block",{method:"POST",body:JSON.stringify({blocked:b})});tab("users")}
+async function block(id,b){if(!confirm((b?"Block":"Unblock")+" this user?"))return;await req("/admin/users/"+id+"/block",{method:"POST",body:JSON.stringify({blocked:b})});tab("users")}
 async function adjust(id){let g=prompt("Gaming balance change (+/-):","0"),w=prompt("Winning balance change (+/-):","0");if(g===null)return;await req("/admin/users/"+id+"/balance",{method:"POST",body:JSON.stringify({gaming_delta:Number(g),winning_delta:Number(w||0)})});tab("users")}
-async function dec(t,id,a){await req("/admin/"+t+"/"+id+"/"+a,{method:"POST"});tab(t)}
-async function wd(id,a){await req("/admin/withdraws/"+id+"/"+a,{method:"POST"});tab("withdraws")}
+async function dec(t,id,a){if(!confirm((a==="approve"?"Approve":"Reject")+" this "+t+" request?"))return;await req("/admin/"+t+"/"+id+"/"+a,{method:"POST"});tab(t)}
+async function wd(id,a){if(!confirm(a==="approve"?"Approve this withdrawal?":"Reject and refund this withdrawal?"))return;await req("/admin/withdraws/"+id+"/"+a,{method:"POST"});tab("withdraws")}
 async function createMatch(){await req("/admin/matches",{method:"POST",body:JSON.stringify({title:mt.value,entry_fee:me.value,prize:mp.value,max_players:mm.value,time:mtime.value,room_id:mr.value,status:"upcoming"})});tab("matches")}
-async function delMatch(id){if(confirm("Delete match?")){await req("/admin/matches/"+id,{method:"DELETE"});tab("matches")}}
+async function delMatch(id){if(confirm("Delete match? This also removes its player entries.")){await req("/admin/matches/"+id,{method:"DELETE"});tab("matches")}}
 async function editMatch(id){let status=prompt("Status: upcoming/live/completed","upcoming"),room=prompt("Room ID","");await req("/admin/matches/"+id,{method:"PUT",body:JSON.stringify({status,room_id:room})});tab("matches")}
-async function win(id,a){await req("/admin/winnings/"+id+"/"+a,{method:"POST"});tab("winnings")}
+async function win(id,a){if(!confirm(a==="approve"?"Approve this winning and credit the match prize?":"Reject this winning?"))return;await req("/admin/winnings/"+id+"/"+a,{method:"POST"});tab("winnings")}
 async function reply(id){await req("/admin/support/"+id+"/reply",{method:"POST",body:JSON.stringify({reply:document.getElementById("r"+id).value})});tab("support")}
 async function addAnn(){if(!at.value.trim())return;await req("/admin/announcements",{method:"POST",body:JSON.stringify({text:at.value})});tab("ann")}
 async function toggleAnn(id){await req("/admin/announcements/"+id+"/toggle",{method:"POST"});tab("ann")}
