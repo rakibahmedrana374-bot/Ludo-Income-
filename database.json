@@ -40,5 +40,19 @@
     "mobile_label": "Mobile Number",
     "matches_label": "🎮 Matches",
     "statement_label": "📒 My Statement"
+  },
+  "match_settings": {
+    "tournament_label": "🏆 Tournament",
+    "my_match_label": "🎉 My Match 🎉",
+    "room_label": "Room Code",
+    "copy_label": "Copy",
+    "close_label": "🔒 Match Closed",
+    "upload_winner_label": "📸 Upload Winning Screenshot",
+    "user_profile_label": "User Prof✅",
+    "auto_close": true,
+    "show_room_only_when_full": true,
+    "default_max_players": 2,
+    "show_uid_in_admin": true,
+    "show_mobile_in_admin": true
   }
 }
