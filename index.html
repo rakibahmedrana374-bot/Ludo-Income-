@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#16a34a">
+<link rel="icon" type="image/jpeg" href="assets/ludo-income-logo.jpg">
 <title>Ludo Income</title>
 
 <style>
@@ -39,8 +40,14 @@ header{
     align-items:center;
 }
 .logo{
-    font-size:24px;
-    font-weight:900;
+    display:flex;
+    align-items:center;
+}
+.logo img{
+    width:145px;
+    height:46px;
+    object-fit:contain;
+    display:block;
 }
 .online{
     background:#ffffff22;
@@ -272,10 +279,15 @@ nav button.active{
 }
 .auth-logo{
     text-align:center;
-    color:#16a34a;
-    font-size:32px;
-    font-weight:900;
-    margin-bottom:5px;
+    margin-bottom:8px;
+}
+.auth-logo img{
+    width:180px;
+    max-width:75%;
+    height:110px;
+    object-fit:contain;
+    display:block;
+    margin:auto;
 }
 .auth-sub{
     text-align:center;
@@ -330,7 +342,7 @@ nav button.active{
 <div id="authScreen" class="auth">
 <div class="auth-card">
 
-    <div class="auth-logo">Ludo Income</div>
+    <div class="auth-logo"><img src="assets/ludo-income-logo.jpg" alt="Ludo Income Logo"></div>
     <div class="auth-sub">Play • Win • Earn</div>
 
     <div class="auth-tabs">
@@ -381,7 +393,7 @@ nav button.active{
 
 <header>
     <div class="header-row">
-        <div class="logo">Ludo Income</div>
+        <div class="logo"><img src="assets/ludo-income-logo.jpg" alt="Ludo Income Logo"></div>
         <div class="online">● Online</div>
     </div>
 </header>
