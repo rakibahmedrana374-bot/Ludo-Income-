@@ -6,5 +6,26 @@
   "transactions": [],
   "winnings": [],
   "support_messages": [],
-  "announcements": []
+  "announcements": [],
+  "payment_settings": {
+    "bkash": {
+      "number": "01301470686",
+      "label": "Personal",
+      "enabled": true,
+      "logo_url": ""
+    },
+    "nagad": {
+      "number": "01806097369",
+      "label": "Personal",
+      "enabled": true,
+      "logo_url": ""
+    },
+    "min_deposit": 10,
+    "instructions": [
+      "কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।",
+      "টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।",
+      "Transaction ID অবশ্যই জমা দিতে হবে।",
+      "সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"
+    ]
+  }
 }

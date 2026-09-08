@@ -20,9 +20,27 @@ const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
-if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[]},null,2));
+if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]}},null,2));
 
-function readDB(){return JSON.parse(fs.readFileSync(DB_FILE,"utf8"))}
+function readDB(){
+  const db=JSON.parse(fs.readFileSync(DB_FILE,"utf8"));
+  if(!db.payment_settings) db.payment_settings={
+    bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},
+    nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},
+    min_deposit:10,
+    instructions:[
+      "কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।",
+      "টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।",
+      "Transaction ID অবশ্যই জমা দিতে হবে।",
+      "সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"
+    ]
+  };
+  db.payment_settings.bkash ||= {number:"01301470686",label:"Personal",enabled:true,logo_url:""};
+  db.payment_settings.nagad ||= {number:"01806097369",label:"Personal",enabled:true,logo_url:""};
+  db.payment_settings.min_deposit=Number(db.payment_settings.min_deposit)||10;
+  if(!Array.isArray(db.payment_settings.instructions)) db.payment_settings.instructions=[];
+  return db
+}
 function writeDB(db){fs.writeFileSync(DB_FILE,JSON.stringify(db,null,2))}
 function id(arr){return arr.length?Math.max(...arr.map(x=>Number(x.id)||0))+1:1}
 function token(payload){return jwt.sign(payload,JWT_SECRET,{expiresIn:"30d"})}
@@ -82,9 +100,22 @@ app.post("/api/matches/:id/join",auth,(req,res)=>{
  db.transactions.push({id:id(db.transactions),user_id:req.user.id,type:"match_entry",amount:fee,status:"approved",match_id:m.id,created_at:new Date().toISOString()}); writeDB(db);
  res.json({message:"Match joined successfully"});
 });
+app.get("/api/payment-settings",(req,res)=>{
+ const s=readDB().payment_settings;
+ res.json({payment_settings:s});
+});
 app.post("/api/deposit",auth,(req,res)=>{
- const db=readDB(),amount=Number(req.body.amount); if(!amount||amount<=0)return res.status(400).json({message:"Invalid amount"});
- db.transactions.push({id:id(db.transactions),user_id:req.user.id,type:"deposit",method:req.body.method,amount,transaction_id:req.body.transaction_id,status:"pending",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Deposit submitted for approval"});
+ const db=readDB(),amount=Number(req.body.amount),method=String(req.body.method||"").toLowerCase(),tx=String(req.body.transaction_id||"").trim();
+ const s=db.payment_settings;
+ if(!["bkash","nagad"].includes(method)) return res.status(400).json({message:"Invalid payment method"});
+ if(!s[method] || s[method].enabled===false) return res.status(400).json({message:"এই payment method এখন বন্ধ আছে"});
+ if(!amount||amount<=0) return res.status(400).json({message:"সঠিক amount দিন"});
+ if(amount<Number(s.min_deposit||10)) return res.status(400).json({message:"Minimum deposit is ৳"+Number(s.min_deposit||10)});
+ if(!tx) return res.status(400).json({message:"Transaction ID অবশ্যই দিতে হবে"});
+ const duplicate=db.transactions.some(t=>t.type==="deposit"&&String(t.transaction_id||"").toLowerCase()===tx.toLowerCase());
+ if(duplicate) return res.status(400).json({message:"এই Transaction ID আগে জমা দেওয়া হয়েছে"});
+ db.transactions.push({id:id(db.transactions),user_id:req.user.id,type:"deposit",method,amount,transaction_id:tx,status:"pending",created_at:new Date().toISOString()});
+ writeDB(db);res.json({message:"Deposit submitted for approval"});
 });
 app.post("/api/withdraw",auth,(req,res)=>{
  const db=readDB(),amount=Number(req.body.amount),b=getBalance(db,req.user.id);
@@ -164,6 +195,20 @@ app.post("/api/admin/winnings/:id/:action",admin,(req,res)=>{
 });
 app.get("/api/admin/support",admin,(req,res)=>{const db=readDB();res.json({items:db.support_messages.map(s=>({...s,user:db.users.find(u=>u.id===s.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/support/:id/reply",admin,(req,res)=>{const db=readDB(),s=db.support_messages.find(x=>x.id==req.params.id);if(!s)return res.status(404).json({message:"Message not found"});s.reply=req.body.reply||"";s.status="replied";writeDB(db);res.json({message:"Reply saved"})});
+app.get("/api/admin/payment-settings",admin,(req,res)=>res.json({payment_settings:readDB().payment_settings}));
+app.put("/api/admin/payment-settings",admin,(req,res)=>{
+ const db=readDB(),body=req.body||{},s=db.payment_settings;
+ for(const m of ["bkash","nagad"]){
+   const x=body[m]||{};
+   if(x.number!==undefined) s[m].number=String(x.number).trim();
+   if(x.label!==undefined) s[m].label=String(x.label).trim()||"Personal";
+   if(x.enabled!==undefined) s[m].enabled=!!x.enabled;
+   if(x.logo_url!==undefined) s[m].logo_url=String(x.logo_url).trim();
+ }
+ if(body.min_deposit!==undefined){const n=Number(body.min_deposit);if(!Number.isFinite(n)||n<1)return res.status(400).json({message:"Minimum deposit must be at least 1"});s.min_deposit=n}
+ if(Array.isArray(body.instructions)) s.instructions=body.instructions.map(x=>String(x).trim()).filter(Boolean).slice(0,10);
+ writeDB(db);res.json({message:"Payment settings saved",payment_settings:s});
+});
 app.get("/api/admin/announcements",admin,(req,res)=>res.json({items:readDB().announcements}));
 app.post("/api/admin/announcements",admin,(req,res)=>{const db=readDB();const a={id:id(db.announcements),text:req.body.text||"",enabled:true,created_at:new Date().toISOString()};db.announcements.push(a);writeDB(db);res.json({message:"Announcement created",announcement:a})});
 app.post("/api/admin/announcements/:id/toggle",admin,(req,res)=>{const db=readDB(),a=db.announcements.find(x=>x.id==req.params.id);if(!a)return res.status(404).json({message:"Not found"});a.enabled=!a.enabled;writeDB(db);res.json({message:"Updated"})});
