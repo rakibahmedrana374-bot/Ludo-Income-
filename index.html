@@ -324,6 +324,8 @@ nav button.active{
     padding:20px;
     color:#64748b;
 }
+
+.statement-item{display:flex;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid #eef2f7}.statement-item:last-child{border-bottom:0}.statement-main{min-width:0}.statement-title{font-weight:800}.statement-meta{font-size:11px;color:#64748b;margin-top:4px;line-height:1.45}.statement-amount{font-weight:900;white-space:nowrap}.plus{color:#16a34a}.minus{color:#dc2626}.profile-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}.profile-avatar{width:64px;height:64px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:34px;overflow:hidden;border:2px solid #e5e7eb}.profile-avatar img{width:100%;height:100%;object-fit:cover}.profile-stat{display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:13px;margin:8px 0}.uid-copy{display:flex;align-items:center;gap:7px}.tiny-copy{border:0;background:#e5e7eb;border-radius:7px;padding:6px 8px;font-weight:800;font-size:11px}.profile-link{display:block;text-decoration:none}.settings-note{font-size:12px;color:#64748b;margin:6px 0 12px}
 </style>
 </head>
 
@@ -416,7 +418,7 @@ nav button.active{
             <button class="action" onclick="showPage('deposit')">💳 Deposit</button>
             <button class="action" onclick="showPage('withdraw')">💸 Withdraw</button>
             <button class="action" onclick="showPage('matches')">🏆 Tournament</button>
-            <button class="action" onclick="showPage('history')">📜 History</button>
+            <button class="action" onclick="showPage('history')">📒 My Statement</button>
         </div>
     </div>
 
@@ -491,10 +493,11 @@ nav button.active{
     </div>
 </section>
 
-<!-- HISTORY -->
+<!-- HISTORY / MY STATEMENT -->
 <section id="page-history" class="hidden">
     <div class="card">
-        <div class="section-title">📜 Transaction History</div>
+        <div class="section-title" id="statementTitle">📒 My Statement</div>
+        <div class="notice">আপনার Deposit, Withdraw, Match Join, Profit এবং Loss-এর সম্পূর্ণ হিসাব এখানে তারিখ ও সময়সহ দেখা যাবে।</div>
         <div id="historyList" class="loading">Loading...</div>
     </div>
 </section>
@@ -532,26 +535,19 @@ nav button.active{
 <section id="page-profile" class="hidden">
     <div class="card">
         <div class="section-title">👤 Profile</div>
-
-        <div class="profile-row">
-            <span>Name</span>
-            <b id="profileName">-</b>
+        <div class="profile-head">
+            <div id="profileAvatar" class="profile-avatar">👨‍🦱</div>
+            <div>
+                <div id="profileNameWrap"><b id="profileName">-</b></div>
+                <small id="profileMobileTop">-</small>
+            </div>
         </div>
-
-        <div class="profile-row">
-            <span>Mobile</span>
-            <b id="profileMobile">-</b>
-        </div>
-
-        <div class="profile-row">
-            <span>Referral Code</span>
-            <b id="profileReferral">-</b>
-        </div>
-
+        <div id="profileUidRow" class="profile-stat"><span id="profileUidLabel">UID Code</span><div class="uid-copy"><b id="profileUid">-</b><button class="tiny-copy" onclick="copyUid()">Copy</button></div></div>
+        <div id="profileMobileRow" class="profile-stat"><span id="profileMobileLabel">Mobile Number</span><b id="profileMobile">-</b></div>
+        <div id="profileMatchesRow" class="profile-stat"><span id="profileMatchesLabel">🎮 Matches</span><b id="profileMatches">0</b></div>
+        <div id="profileReferralRow" class="profile-stat"><span>Referral Code</span><div class="uid-copy"><b id="profileReferral">-</b><button class="tiny-copy" onclick="copyReferral()">Copy</button></div></div>
+        <button id="statementProfileBtn" class="btn btn-green profile-link" onclick="showPage('history')">📒 My Statement</button>
         <br>
-
-        <button class="btn btn-green" onclick="copyReferral()">Copy Referral Code</button>
-        <br><br>
         <button class="btn btn-red" onclick="logout()">Logout</button>
     </div>
 </section>
@@ -764,14 +760,26 @@ async function loadUser(){
     try{
         const data = await api("/api/user/profile");
         const user = data.user || data;
-
+        const s = user.profile_settings || {};
         $("profileName").textContent = user.name || "-";
         $("profileMobile").textContent = user.mobile || "-";
-        $("profileReferral").textContent =
-            user.referral_code || user.referralCode || "-";
-    }catch(e){
-        console.log(e);
-    }
+        $("profileMobileTop").textContent = user.mobile || "-";
+        $("profileUid").textContent = user.uid_code || "-";
+        $("profileMatches").textContent = Number(user.match_count||0);
+        $("profileReferral").textContent = user.referral_code || user.referralCode || "-";
+        $("profileUidLabel").textContent = s.uid_label || "UID Code";
+        $("profileMobileLabel").textContent = s.mobile_label || "Mobile Number";
+        $("profileMatchesLabel").textContent = s.matches_label || "🎮 Matches";
+        $("statementTitle").textContent = s.statement_label || "📒 My Statement";
+        $("profileNameWrap").style.display = s.show_name===false ? "none" : "block";
+        $("profileUidRow").style.display = s.show_uid===false ? "none" : "flex";
+        $("profileMobileRow").style.display = s.show_mobile===false ? "none" : "flex";
+        $("profileMatchesRow").style.display = s.show_matches===false ? "none" : "flex";
+        $("profileReferralRow").style.display = s.show_referral===false ? "none" : "flex";
+        const avatar=$("profileAvatar");
+        const logo=s.profile_logo||"👨‍🦱";
+        if(/^https?:\/\//i.test(logo)){avatar.innerHTML=`<img src="${escapeHtml(logo)}" alt="Profile">`;}else{avatar.textContent=logo;}
+    }catch(e){ console.log(e); }
 }
 
 async function loadBalance(){
@@ -1023,50 +1031,19 @@ async function submitWithdraw(){
 /* HISTORY */
 
 async function loadHistory(){
-
     try{
-        const data = await api("/api/transactions");
-
-        const list = Array.isArray(data)
-            ? data
-            : (data.transactions || []);
-
-        if(!list.length){
-            $("historyList").innerHTML =
-                `<div class="empty">কোনো transaction নেই।</div>`;
-            return;
-        }
-
-        $("historyList").innerHTML = list.map(t=>{
-
-            const amount = Number(t.amount || 0);
-            const type = String(t.type || t.kind || "").toLowerCase();
-
-            const negative =
-                type.includes("withdraw") ||
-                type.includes("entry");
-
-            return `
-            <div class="history-item">
-                <div>
-                    <b>${escapeHtml(t.type || "Transaction")}</b>
-                    <br>
-                    <small>${escapeHtml(String(
-                        t.status || "pending"
-                    ))}</small>
-                </div>
-
-                <div class="${negative ? "minus" : "plus"}">
-                    ${negative ? "-" : "+"}৳${money(amount)}
-                </div>
-            </div>
-            `;
+        const data=await api("/api/user/statement");
+        const list=data.statement||[];
+        if(!list.length){$("historyList").innerHTML=`<div class="empty">কোনো statement নেই।</div>`;return;}
+        $("historyList").innerHTML=list.map(t=>{
+            const amount=Number(t.amount||0);
+            const positive=amount>=0;
+            const d=new Date(t.created_at);
+            const dateTime=isNaN(d.getTime())?String(t.created_at||""):d.toLocaleString("en-BD",{dateStyle:"medium",timeStyle:"short"});
+            const meta=[t.match_title?`🎮 ${escapeHtml(t.match_title)}`:"",t.method?escapeHtml(t.method):"",t.transaction_id?`TRX: ${escapeHtml(t.transaction_id)}`:"",dateTime].filter(Boolean).join(" • ");
+            return `<div class="statement-item"><div class="statement-main"><div class="statement-title">${escapeHtml(t.title||t.type||"Statement")}</div><div class="statement-meta">${meta}</div></div><div class="statement-amount ${positive?"plus":"minus"}">${positive?"+":"-"}৳${money(Math.abs(amount))}</div></div>`;
         }).join("");
-
-    }catch(e){
-        $("historyList").innerHTML =
-            `<div class="empty">History পাওয়া যাচ্ছে না।</div>`;
-    }
+    }catch(e){$("historyList").innerHTML=`<div class="empty">Statement পাওয়া যাচ্ছে না।</div>`;}
 }
 
 /* WINNING */
@@ -1143,6 +1120,12 @@ async function sendSupport(){
     }catch(e){
         alert(e.message);
     }
+}
+
+function copyUid(){
+    const code=$("profileUid").textContent;
+    if(!code||code==="-"){alert("UID Code পাওয়া যায়নি");return;}
+    navigator.clipboard.writeText(code).then(()=>alert("UID Code copied")).catch(()=>alert(code));
 }
 
 /* REFERRAL */

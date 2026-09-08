@@ -20,7 +20,7 @@ const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
-if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]}},null,2));
+if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"}},null,2));
 
 function readDB(){
   const db=JSON.parse(fs.readFileSync(DB_FILE,"utf8"));
@@ -39,6 +39,15 @@ function readDB(){
   db.payment_settings.nagad ||= {number:"01806097369",label:"Personal",enabled:true,logo_url:""};
   db.payment_settings.min_deposit=Number(db.payment_settings.min_deposit)||10;
   if(!Array.isArray(db.payment_settings.instructions)) db.payment_settings.instructions=[];
+  db.profile_settings ||= {};
+  const ps=db.profile_settings;
+  if(ps.uid_prefix===undefined) ps.uid_prefix="LI";
+  if(ps.profile_logo===undefined) ps.profile_logo="👨‍🦱";
+  ["show_name","show_mobile","show_uid","show_matches","show_referral"].forEach(k=>{if(ps[k]===undefined) ps[k]=true;});
+  ps.uid_label=ps.uid_label||"UID Code";
+  ps.mobile_label=ps.mobile_label||"Mobile Number";
+  ps.matches_label=ps.matches_label||"🎮 Matches";
+  ps.statement_label=ps.statement_label||"📒 My Statement";
   return db
 }
 function writeDB(db){fs.writeFileSync(DB_FILE,JSON.stringify(db,null,2))}
@@ -64,25 +73,36 @@ const upload=multer({storage:multer.diskStorage({
 
 app.get("/api/health",(req,res)=>res.json({ok:true,service:"Ludo Income"}));
 
+function makeUid(db){
+  const prefix=String(db.profile_settings?.uid_prefix||"LI").replace(/[^A-Za-z0-9]/g,"").slice(0,8)||"LI";
+  let code="";
+  do { code=prefix+"-"+Math.random().toString(36).slice(2,10).toUpperCase(); } while(db.users.some(u=>u.uid_code===code));
+  return code;
+}
+
 app.post("/api/auth/register",async(req,res)=>{
  const {name,mobile,password}=req.body;
  if(!name||!mobile||!password) return res.status(400).json({message:"Name, mobile and password required"});
  if(password.length<6) return res.status(400).json({message:"Password must be at least 6 characters"});
  const db=readDB();
  if(db.users.some(u=>u.mobile===mobile)) return res.status(409).json({message:"Mobile already registered"});
- const u={id:id(db.users),name,mobile,password:await bcrypt.hash(password,10),referral_code:"LI"+Math.random().toString(36).slice(2,8).toUpperCase(),blocked:false,created_at:new Date().toISOString()};
+ const u={id:id(db.users),name,mobile,password:await bcrypt.hash(password,10),uid_code:makeUid(db),referral_code:"LI"+Math.random().toString(36).slice(2,8).toUpperCase(),blocked:false,created_at:new Date().toISOString()};
  db.users.push(u); db.balances.push({id:id(db.balances),user_id:u.id,gaming_balance:0,winning_balance:0}); writeDB(db);
- res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,referral_code:u.referral_code}});
+ res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
 });
 app.post("/api/auth/login",async(req,res)=>{
  const db=readDB(),u=db.users.find(x=>x.mobile===req.body.mobile);
  if(!u||!(await bcrypt.compare(req.body.password||"",u.password))) return res.status(401).json({message:"Invalid mobile or password"});
  if(u.blocked) return res.status(403).json({message:"Account blocked"});
- res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,referral_code:u.referral_code}});
+ res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
 });
 app.get("/api/user/profile",auth,(req,res)=>{
  const db=readDB(),u=db.users.find(x=>x.id===req.user.id); if(!u)return res.status(404).json({message:"User not found"});
- const {password,...safe}=u; res.json({user:safe});
+ if(!u.uid_code){u.uid_code=makeUid(db);writeDB(db);}
+ const safe={...u}; delete safe.password;
+ safe.profile_settings=db.profile_settings;
+ safe.match_count=db.match_players.filter(p=>p.user_id===u.id).length;
+ res.json({user:safe});
 });
 app.get("/api/user/balance",auth,(req,res)=>res.json({balance:getBalance(readDB(),req.user.id)}));
 
@@ -124,7 +144,23 @@ app.post("/api/withdraw",auth,(req,res)=>{
  b.winning_balance-=amount;
  db.transactions.push({id:id(db.transactions),user_id:req.user.id,type:"withdraw",method:req.body.method,number:req.body.number,amount,status:"pending",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Withdraw request submitted"});
 });
-app.get("/api/transactions",auth,(req,res)=>res.json({transactions:readDB().transactions.filter(x=>x.user_id===req.user.id).sort((a,b)=>b.id-a.id)}));
+app.get("/api/transactions",auth,(req,res)=>res.json({transactions:readDB().transactions.filter(x=>x.user_id===req.user.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))}));
+app.get("/api/user/statement",auth,(req,res)=>{
+ const db=readDB(),uid=req.user.id;
+ const events=[];
+ const userTx=db.transactions.filter(t=>t.user_id===uid);
+ userTx.forEach(t=>{
+   if(t.type==="deposit") events.push({id:"t"+t.id,type:"deposit",title:"Deposit",amount:Number(t.amount||0),status:t.status,method:t.method,transaction_id:t.transaction_id,created_at:t.created_at});
+   else if(t.type==="withdraw") events.push({id:"t"+t.id,type:"withdraw",title:"Withdraw",amount:-Number(t.amount||0),status:t.status,method:t.method,created_at:t.created_at});
+   else if(t.type==="match_entry") { const m=db.matches.find(x=>x.id===t.match_id); events.push({id:"t"+t.id,type:"match_join",title:"Match Joined",amount:-Number(t.amount||0),status:t.status,match_id:t.match_id,match_title:m?.title||"Ludo Match",created_at:t.created_at}); }
+   else if(t.type==="match_profit") { const m=db.matches.find(x=>x.id===t.match_id); events.push({id:"t"+t.id,type:"profit",title:"Match Profit",amount:Number(t.amount||0),status:t.status,match_id:t.match_id,match_title:m?.title||"Ludo Match",created_at:t.created_at}); }
+ });
+ const joined=db.match_players.filter(p=>p.user_id===uid);
+ const approvedWins=new Set(db.winnings.filter(w=>w.user_id===uid&&w.status==="approved").map(w=>w.match_id));
+ joined.forEach(p=>{const m=db.matches.find(x=>x.id===p.match_id); if(m&&String(m.status).toLowerCase()==="completed"&&!approvedWins.has(p.match_id)&&!userTx.some(t=>t.type==="match_loss"&&t.match_id===p.match_id)){events.push({id:"loss"+p.id,type:"loss",title:"Match Loss",amount:-Number(m.entry_fee||0),status:"completed",match_id:m.id,match_title:m.title||"Ludo Match",created_at:p.created_at});}});
+ events.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+ res.json({statement:events,match_count:joined.length,profile_settings:db.profile_settings});
+});
 app.post("/api/winning",auth,upload.single("screenshot"),(req,res)=>{
  const db=readDB(); if(!req.file)return res.status(400).json({message:"Screenshot required"});
  db.winnings.push({id:id(db.winnings),user_id:req.user.id,match_id:Number(req.body.match_id),room_id:req.body.room_id,screenshot:"/uploads/"+req.file.filename,status:"pending",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Winning submitted for verification"});
@@ -149,7 +185,7 @@ app.get("/api/admin/stats",admin,(req,res)=>{
 });
 app.get("/api/admin/users",admin,(req,res)=>{
  const db=readDB(),q=(req.query.search||"").toLowerCase();
- res.json({users:db.users.filter(u=>!q||u.name.toLowerCase().includes(q)||u.mobile.includes(q)).map(u=>{const b=getBalance(db,u.id);return {id:u.id,name:u.name,mobile:u.mobile,referral_code:u.referral_code,blocked:!!u.blocked,gaming_balance:b.gaming_balance,winning_balance:b.winning_balance}})});
+ res.json({users:db.users.filter(u=>!q||u.name.toLowerCase().includes(q)||u.mobile.includes(q)).map(u=>{const b=getBalance(db,u.id);return {id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code||"",referral_code:u.referral_code,blocked:!!u.blocked,matches:db.match_players.filter(p=>p.user_id===u.id).length,gaming_balance:b.gaming_balance,winning_balance:b.winning_balance}})});
 });
 app.post("/api/admin/users/:id/block",admin,(req,res)=>{const db=readDB(),u=db.users.find(x=>x.id==req.params.id);if(!u)return res.status(404).json({message:"User not found"});u.blocked=req.body.blocked!==false;writeDB(db);res.json({message:"Updated"})});
 app.post("/api/admin/users/:id/balance",admin,(req,res)=>{
@@ -189,7 +225,7 @@ app.get("/api/admin/winnings",admin,(req,res)=>{const db=readDB();res.json({item
 app.post("/api/admin/winnings/:id/:action",admin,(req,res)=>{
  const db=readDB(),w=db.winnings.find(x=>x.id==req.params.id);if(!w)return res.status(404).json({message:"Winning not found"});
  if(w.status!=="pending")return res.status(400).json({message:"Already processed"});
- if(req.params.action==="approve"){w.status="approved";const m=db.matches.find(x=>x.id===w.match_id);if(m)getBalance(db,w.user_id).winning_balance+=Number(m.prize||0)}
+ if(req.params.action==="approve"){w.status="approved";const m=db.matches.find(x=>x.id===w.match_id);if(m){const prize=Number(m.prize||0);getBalance(db,w.user_id).winning_balance+=prize;db.transactions.push({id:id(db.transactions),user_id:w.user_id,type:"match_profit",amount:prize,status:"approved",match_id:w.match_id,created_at:new Date().toISOString()});}}
  else if(req.params.action==="reject")w.status="rejected";else return res.status(400).json({message:"Invalid action"});
  writeDB(db);res.json({message:"Winning "+req.params.action});
 });
@@ -208,6 +244,14 @@ app.put("/api/admin/payment-settings",admin,(req,res)=>{
  if(body.min_deposit!==undefined){const n=Number(body.min_deposit);if(!Number.isFinite(n)||n<1)return res.status(400).json({message:"Minimum deposit must be at least 1"});s.min_deposit=n}
  if(Array.isArray(body.instructions)) s.instructions=body.instructions.map(x=>String(x).trim()).filter(Boolean).slice(0,10);
  writeDB(db);res.json({message:"Payment settings saved",payment_settings:s});
+});
+app.get("/api/admin/profile-settings",admin,(req,res)=>res.json({profile_settings:readDB().profile_settings}));
+app.put("/api/admin/profile-settings",admin,(req,res)=>{
+ const db=readDB(),b=req.body||{},s=db.profile_settings||{};
+ if(b.uid_prefix!==undefined)s.uid_prefix=String(b.uid_prefix).replace(/[^A-Za-z0-9]/g,"").slice(0,8)||"LI";
+ ["profile_logo","uid_label","mobile_label","matches_label","statement_label"].forEach(k=>{if(b[k]!==undefined)s[k]=String(b[k]);});
+ ["show_name","show_mobile","show_uid","show_matches","show_referral"].forEach(k=>{if(b[k]!==undefined)s[k]=!!b[k];});
+ db.profile_settings=s;writeDB(db);res.json({message:"Profile settings saved",profile_settings:s});
 });
 app.get("/api/admin/announcements",admin,(req,res)=>res.json({items:readDB().announcements}));
 app.post("/api/admin/announcements",admin,(req,res)=>{const db=readDB();const a={id:id(db.announcements),text:req.body.text||"",enabled:true,created_at:new Date().toISOString()};db.announcements.push(a);writeDB(db);res.json({message:"Announcement created",announcement:a})});

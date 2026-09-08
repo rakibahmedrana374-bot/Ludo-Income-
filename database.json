@@ -27,5 +27,18 @@
       "Transaction ID অবশ্যই জমা দিতে হবে।",
       "সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"
     ]
+  },
+  "profile_settings": {
+    "uid_prefix": "LI",
+    "profile_logo": "👨‍🦱",
+    "show_name": true,
+    "show_mobile": true,
+    "show_uid": true,
+    "show_matches": true,
+    "show_referral": true,
+    "uid_label": "UID Code",
+    "mobile_label": "Mobile Number",
+    "matches_label": "🎮 Matches",
+    "statement_label": "📒 My Statement"
   }
 }
