@@ -412,7 +412,7 @@ nav button.active{
 
 <header>
     <div class="header-row">
-        <div class="header-brand"><img class="brand-logo" src="/ludo-income-main-logo.jpg?v=2" alt="Ludo Income Logo"><div class="logo">Ludo Income</div></div>
+        <div class="header-brand"><img class="brand-logo" src="/ludo-income-main-logo.jpg?v=2" alt="Ludo Income Logo"><div id="siteBrandName" class="logo">Ludo Income</div></div>
         <div class="online">● Online</div>
     </div>
 </header>
@@ -441,10 +441,10 @@ nav button.active{
 
     <div class="card" id="quickButtonsCard">
         <div class="actions">
-            <button class="action" onclick="showPage('deposit')">💳 Deposit</button>
-            <button class="action" onclick="showPage('withdraw')">💸 Withdraw</button>
-            <button class="action" onclick="showPage('matches')">🏆 Tournament</button>
-            <button class="action" onclick="showPage('mymatches')">🎉 My Match 🎉</button>
+            <button class="action" data-feature="deposit" onclick="showPage('deposit')">💳 Deposit</button>
+            <button class="action" data-feature="withdraw" onclick="showPage('withdraw')">💸 Withdraw</button>
+            <button class="action" data-feature="matches" onclick="showPage('matches')">🏆 Tournament</button>
+            <button class="action" data-feature="matches" onclick="showPage('mymatches')">🎉 My Match 🎉</button>
             <button class="action" onclick="showPage('history')">📒 My Statement</button>
         </div>
     </div>
@@ -1097,6 +1097,7 @@ async function loadSiteConfig(){
   const d=await fetch('/api/site-config').then(r=>r.json()),f=d.features||{},h=d.home||{};
   try{const an=await fetch('/api/announcements').then(r=>r.json());const box=document.getElementById('announcement');if(box){box.innerHTML=an.enabled&&an.items?.length?an.items.map(x=>escapeHtml(x.text)).join('<br>'):'স্বাগতম Ludo Income-এ ❤️'}}catch(e){}
   const q=document.getElementById('quickButtonsCard'),dc=document.getElementById('dynamicButtonsCard'),ac=document.getElementById('announcementCard'),mc=document.getElementById('matchesCard');
+  const brand=document.getElementById('siteBrandName'); if(brand&&h.hero_title)brand.textContent=h.hero_title; document.title=h.hero_title||document.title;
   if(q)q.classList.toggle('hidden',h.show_quick_buttons===false);
   if(ac)ac.classList.toggle('hidden',h.show_announcement===false||f.announcement===false);
   if(mc)mc.classList.toggle('hidden',h.show_matches===false||f.matches===false);
@@ -1108,9 +1109,9 @@ async function loadSiteConfig(){
   if(f.download_app===false){const b=document.getElementById('installBtn');if(b)b.classList.add('hidden')}
   const db=document.getElementById('dynamicButtons');
   const bs=(h.buttons||[]).filter(x=>x.enabled!==false).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  if(db){db.innerHTML=bs.map(b=>`<button class="action" onclick="runSiteAction('${escapeHtml(String(b.action||''))}')">${escapeHtml(b.icon||'🔘')} ${escapeHtml(b.label)}</button>`).join('');dc?.classList.toggle('hidden',!bs.length)}
+  if(db){db.innerHTML=bs.map(b=>`<button class="action" data-action="${encodeURIComponent(String(b.action||''))}" onclick="runSiteAction(decodeURIComponent(this.dataset.action))">${escapeHtml(b.icon||'🔘')} ${escapeHtml(b.label)}</button>`).join('');dc?.classList.toggle('hidden',!bs.length)}
   const cs=document.getElementById('customSections'),ss=(h.sections||[]).filter(x=>x.enabled!==false).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  if(cs)cs.innerHTML=ss.map(x=>`<div class="card site-custom-section">${x.image_url?`<img src="${escapeHtml(x.image_url)}" onerror="this.style.display='none'">`:''}<div class="section-title">${escapeHtml(x.title)}</div><div>${escapeHtml(x.text||'').replace(/\n/g,'<br>')}</div>${x.button_text?`<button class="action" style="margin-top:10px" onclick="runSiteAction('${escapeHtml(String(x.button_action||''))}')">${escapeHtml(x.button_text)}</button>`:''}</div>`).join('');
+  if(cs)cs.innerHTML=ss.map(x=>`<div class="card site-custom-section">${x.image_url?`<img src="${escapeHtml(x.image_url)}" onerror="this.style.display='none'">`:''}<div class="section-title">${escapeHtml(x.title)}</div><div>${escapeHtml(x.text||'').replace(/\n/g,'<br>')}</div>${x.button_text?`<button class="action" style="margin-top:10px" data-action="${encodeURIComponent(String(x.button_action||''))}" onclick="runSiteAction(decodeURIComponent(this.dataset.action))">${escapeHtml(x.button_text)}</button>`:''}</div>`).join('');
  }catch(e){console.warn('site config',e)}
 }
 function runSiteAction(a){a=String(a||'');if(a.startsWith('page:')){const p=a.slice(5);if(pages.includes(p))return showPage(p)}if(a.startsWith('url:'))return location.href=a.slice(4);if(/^https?:\/\//i.test(a))return location.href=a;if(pages.includes(a))return showPage(a);alert('Action not configured')}
