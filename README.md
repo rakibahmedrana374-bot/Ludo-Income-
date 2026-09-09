@@ -1,34 +1,15 @@
-# Ludo Income — Render Ready
+# Ludo Income — Deposit Logo Fixed
 
-Includes:
-- User authentication and random UID
-- Deposit / Withdraw
-- My Statement with date/time
-- Tournament matches
-- Auto-close after configured number of players (default 2)
-- Room Code visible only to joined players after match is full
-- 🎉 My Match page
-- Winner screenshot upload from My Match only
-- One screenshot per user/match by default
-- Admin screenshot review with User Profile button
-- Admin match/player details with UID and mobile
-- Admin Match Settings, Profile Settings and Deposit Settings
+This build fixes the payment-logo loading issue. The three supplied original logo images are embedded directly into the user/admin HTML, so they continue to display even if the `payment-logos` folder is omitted during GitHub upload.
 
-## Render
-Build: `npm install`
-Start: `npm start`
+Deposit behavior:
+- No payment number is shown initially.
+- Tap the payment logo to reveal that method's number.
+- Copy button appears beside the revealed number.
+- Copy changes to ✅ Copied temporarily.
+- Admin can enable/disable each of the three methods and edit their numbers.
 
-Environment variables:
-- `ADMIN_MOBILE`
-- `ADMIN_PASSWORD`
-- `JWT_SECRET`
-
-Note: JSON file storage is for demo/testing. For a real-money production system, use a persistent database and stronger security/audit controls.
-
-## Deposit System Update
-- 3 payment methods: bKash Personal, Nagad Personal, bKash Merchant.
-- Default numbers: 01301470686 (bKash Personal), 01806097369 (Nagad Personal), 01301470686 (bKash Merchant).
-- User Deposit page shows the original supplied logos. Tap a logo/card to reveal its number.
-- Each method has a Copy button; after copying it changes to `✅ Copied` briefly.
-- Admin Panel → Deposit Settings has separate ON/OFF switches and number fields for all 3 methods.
-- Existing manual Transaction ID + Admin approval flow remains in place.
+Methods:
+- bKash Personal: 01301470686
+- Nagad Personal: 01806097369
+- bKash Merchant: 01301470686

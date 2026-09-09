@@ -90,7 +90,7 @@ app.get("/api/maintenance",(req,res)=>res.json({maintenance:readDB().maintenance
 // Maintenance blocks normal users/site while keeping Admin Panel and Admin APIs accessible.
 app.use((req,res,next)=>{
  const p=req.path||"";
- if(p==="/api/health" || p==="/api/maintenance" || p==="/admin" || p.startsWith("/api/admin") || p.startsWith("/uploads/")) return next();
+ if(p==="/api/health" || p==="/api/maintenance" || p==="/admin" || p.startsWith("/api/admin") || p.startsWith("/uploads/") || p.startsWith("/payment-logos/")) return next();
  if(!maintenanceEnabled()) return next();
  if(p.startsWith("/api/")) return res.status(503).json({success:false,maintenance:true,message:(readDB().maintenance?.message)||"Update চলছে"});
  return res.status(503).type("html").send(maintenancePage());
