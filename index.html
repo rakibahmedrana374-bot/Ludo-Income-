@@ -919,36 +919,15 @@ async function loadPaymentSettings(){
 }
 
 function renderPaymentMethods(){
-    const box=$("paymentMethods");
-    if(!box||!paymentSettings)return;
-    const methods=["bkash","nagad","bkash_merchant"].filter(m=>paymentSettings[m] && paymentSettings[m].enabled!==false);
+    const box=$("paymentMethods"); if(!box||!paymentSettings)return;
+    const methods=(paymentSettings.methods||[]).filter(m=>m && m.enabled!==false).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
     if(!methods.length){box.innerHTML='<div class="empty">কোনো payment method চালু নেই।</div>';return;}
-    if(!methods.includes(depositMethod)) depositMethod="";
-    const meta={
-      bkash:{name:"bKash",label:"Personal"},
-      nagad:{name:"Nagad",label:"Personal"},
-      bkash_merchant:{name:"bKash Merchant",label:"Merchant"}
-    };
-    box.innerHTML=methods.map(m=>{
-        const s=paymentSettings[m], info=meta[m], shown=depositMethod===m;
-        return `<div class="payment-card ${shown?'active':''}" role="button" tabindex="0" onclick="selectMethod('${m}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectMethod('${m}')}">
-          <div class="payment-row">
-            <div class="pay-brand">
-              <button type="button" class="pay-logo-btn" aria-label="${escapeHtml(info.name)} logo" onclick="event.stopPropagation();selectMethod('${m}')">
-                <img class="pay-logo-img" src="${escapeHtml(s.logo_url||info.logo||"/payment-logos/bkash-personal.jpg?v=2")}" alt="${escapeHtml(info.name)} logo">
-              </button>
-              <div><div class="pay-brand-name">${escapeHtml(info.name)}</div><div class="pay-label">${escapeHtml(s.label||info.label)}</div></div>
-            </div>
-            <div class="pay-status">${shown?'✓':''}</div>
-          </div>
-          <div class="tap-note">${shown?'নম্বর দেখা যাচ্ছে':'লোগোতে চাপ দিলে নম্বর দেখাবে'}</div>
-          ${shown?`<div class="revealed-number"><b class="pay-number" id="num-${m}">${escapeHtml(s.number||'-')}</b><button type="button" class="copy-btn" id="copy-${m}" onclick="event.stopPropagation();copyPaymentNumber('${m}')">Copy</button></div>`:''}
-        </div>`;
-    }).join("");
-    const min=Number(paymentSettings.min_deposit||10);
-    if($("depositAmount")){$("depositAmount").min=String(min);$("minDepositNote").textContent=`Minimum deposit: ৳${money(min)}`;}
-    const list=Array.isArray(paymentSettings.instructions)?paymentSettings.instructions:[];
-    $("depositInstructions").innerHTML=list.length?`<h3>📌 Deposit করার নিয়ম</h3><ol>${list.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ol>`:"";
+    const ids=methods.map(m=>String(m.id)); if(!ids.includes(String(depositMethod))) depositMethod="";
+    box.innerHTML=methods.map(m=>{const id=String(m.id).replace(/[^A-Za-z0-9_-]/g,'_'), shown=String(depositMethod)===String(m.id);return `<div class="payment-card ${shown?'active':''}" role="button" tabindex="0" onclick="selectMethod('${escapeHtml(String(m.id))}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectMethod('${escapeHtml(String(m.id))}')}" data-payment-id="${escapeHtml(String(m.id))}">
+      <div class="payment-row"><div class="pay-brand"><button type="button" class="pay-logo-btn" aria-label="${escapeHtml(m.name)} logo" onclick="event.stopPropagation();selectMethod('${escapeHtml(String(m.id))}')"><img class="pay-logo-img" src="${escapeHtml(m.logo_url||'/ludo-income-main-logo.jpg')}" alt="${escapeHtml(m.name)} logo"></button><div><div class="pay-brand-name">${escapeHtml(m.name)}</div><div class="pay-label">${escapeHtml(m.label||'Payment')}</div></div></div><div class="pay-status">${shown?'✓':''}</div></div>
+      <div class="tap-note">${shown?'নম্বর দেখা যাচ্ছে':'লোগোতে চাপ দিলে নম্বর দেখাবে'}</div>${shown?`<div class="revealed-number"><b class="pay-number" id="num-${id}">${escapeHtml(m.number||'-')}</b><button type="button" class="copy-btn" id="copy-${id}" onclick="event.stopPropagation();copyPaymentNumber('${escapeHtml(String(m.id))}')">Copy</button></div>`:''}</div>`}).join('');
+    const min=Number(paymentSettings.min_deposit||10); if($("depositAmount")){$("depositAmount").min=String(min);$("minDepositNote").textContent=`Minimum deposit: ৳${money(min)}`;}
+    const list=Array.isArray(paymentSettings.instructions)?paymentSettings.instructions:[]; $("depositInstructions").innerHTML=list.length?`<h3>📌 Deposit করার নিয়ম</h3><ol>${list.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol>`:'';
 }
 
 function selectMethod(method){
@@ -964,7 +943,7 @@ function selectMethod(method){
 async function copyPaymentNumber(method){
     const n=paymentSettings?.[method]?.number||"";
     if(!n)return;
-    const btn=$("copy-"+method);
+    const safeId=String(method).replace(/[^A-Za-z0-9_-]/g,'_'); const btn=$("copy-"+safeId);
     try{await navigator.clipboard.writeText(n);}catch(e){
       const ta=document.createElement("textarea");ta.value=n;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();
     }

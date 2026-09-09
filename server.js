@@ -20,8 +20,8 @@ const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
 const SMS_WEBHOOK_URL=process.env.SMS_WEBHOOK_URL||"";
 const OTP_TTL_MS=5*60*1000;
 
-const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads"), PAYMENT_LOGO_DIR=path.join(ROOT,"uploads","payment-logos");
-fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true}); fs.mkdirSync(PAYMENT_LOGO_DIR,{recursive:true});
+const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
+fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
 if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg?v=2"},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg?v=2"},bkash_merchant:{number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg?v=2"},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},maintenance:{enabled:false,title:"🔧 Update চলছে",message:"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।",footer:"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️",button_text:"🔄 আবার চেষ্টা করুন"},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
 
@@ -46,6 +46,8 @@ function readDB(){
   if(!db.payment_settings.bkash_merchant.logo_url) db.payment_settings.bkash_merchant.logo_url="/payment-logos/bkash-merchant.jpg?v=2";
   db.payment_settings.min_deposit=Number(db.payment_settings.min_deposit)||10;
   if(!Array.isArray(db.payment_settings.instructions)) db.payment_settings.instructions=[];
+  if(!Array.isArray(db.payment_settings.methods)) db.payment_settings.methods=Object.keys(db.payment_settings).filter(k=>!['min_deposit','instructions','methods'].includes(k)).map((k,i)=>({id:k,name:k,label:db.payment_settings[k]?.label||'Payment',number:db.payment_settings[k]?.number||'',logo_url:db.payment_settings[k]?.logo_url||'',enabled:db.payment_settings[k]?.enabled!==false,sort_order:i}));
+  db.payment_settings.methods=db.payment_settings.methods.map((m,i)=>({...m,id:String(m.id||('method_'+Date.now()+'_'+i)),name:String(m.name||'Payment'),label:String(m.label||''),number:String(m.number||''),logo_url:String(m.logo_url||''),enabled:m.enabled!==false,sort_order:Number.isFinite(Number(m.sort_order))?Number(m.sort_order):i})).sort((a,b)=>a.sort_order-b.sort_order);
   db.profile_settings ||= {};
   const ps=db.profile_settings;
   if(ps.uid_prefix===undefined) ps.uid_prefix="LI";
@@ -121,7 +123,6 @@ const upload=multer({storage:multer.diskStorage({
  destination:(req,file,cb)=>cb(null,UPLOAD_DIR),
  filename:(req,file,cb)=>cb(null,Date.now()+"-"+Math.random().toString(36).slice(2)+path.extname(file.originalname))
 }),limits:{fileSize:5*1024*1024}});
-const paymentLogoUpload=multer({storage:multer.diskStorage({destination:(req,file,cb)=>cb(null,PAYMENT_LOGO_DIR),filename:(req,file,cb)=>cb(null,`payment-${req.params.method}-${Date.now()}${path.extname(file.originalname).toLowerCase()}`)}),limits:{fileSize:2*1024*1024},fileFilter:(req,file,cb)=>{const ok=["image/jpeg","image/png","image/webp","image/svg+xml"].includes(file.mimetype);cb(ok?null:new Error("Only JPG, PNG, WEBP or SVG logos are allowed"),ok)}});
 
 app.get("/api/health",(req,res)=>res.json({ok:true,service:"Ludo Income"}));
 
@@ -298,8 +299,8 @@ app.get("/api/payment-settings",(req,res)=>{
 app.post("/api/deposit",auth,(req,res)=>{
  const db=readDB(),amount=Number(req.body.amount),method=String(req.body.method||"").toLowerCase(),tx=String(req.body.transaction_id||"").trim();
  const s=db.payment_settings;
- if(!["bkash","nagad","bkash_merchant"].includes(method)) return res.status(400).json({message:"Invalid payment method"});
- if(!s[method] || s[method].enabled===false) return res.status(400).json({message:"এই payment method এখন বন্ধ আছে"});
+ const pm=Array.isArray(s.methods)?s.methods.find(x=>String(x.id)===String(method)):null;
+ if(!pm || pm.enabled===false) return res.status(400).json({message:"এই payment method এখন বন্ধ আছে"});
  if(!amount||amount<=0) return res.status(400).json({message:"সঠিক amount দিন"});
  if(amount<Number(s.min_deposit||10)) return res.status(400).json({message:"Minimum deposit is ৳"+Number(s.min_deposit||10)});
  if(!tx) return res.status(400).json({message:"Transaction ID অবশ্যই দিতে হবে"});
@@ -477,31 +478,12 @@ app.post("/api/admin/winnings/:id/:action",admin,(req,res)=>{
 app.get("/api/admin/support",admin,(req,res)=>{const db=readDB();res.json({items:db.support_messages.map(s=>({...s,user:db.users.find(u=>u.id===s.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/support/:id/reply",admin,(req,res)=>{const db=readDB(),s=db.support_messages.find(x=>x.id==req.params.id);if(!s)return res.status(404).json({message:"Message not found"});s.reply=req.body.reply||"";s.status="replied";writeDB(db);res.json({message:"Reply saved"})});
 app.get("/api/admin/payment-settings",admin,(req,res)=>res.json({payment_settings:readDB().payment_settings}));
-app.post("/api/admin/payment-settings/:method/logo",admin,(req,res)=>{
- const allowed=["bkash","nagad","bkash_merchant"]; if(!allowed.includes(req.params.method)) return res.status(400).json({message:"Invalid payment method"});
- paymentLogoUpload.single("logo")(req,res,(err)=>{
-   if(err) return res.status(400).json({message:err.message||"Logo upload failed"});
-   if(!req.file) return res.status(400).json({message:"Logo file is required"});
-   const db=readDB(),s=db.payment_settings||{}; s[req.params.method]=s[req.params.method]||{};
-   const old=String(s[req.params.method].logo_url||"");
-   if(old.startsWith("/uploads/payment-logos/")){try{const oldPath=path.join(ROOT,old.split("?")[0].replace(/^\//,""));if(oldPath!==req.file.path && fs.existsSync(oldPath))fs.unlinkSync(oldPath)}catch(e){}}
-   s[req.params.method].logo_url=`/uploads/payment-logos/${req.file.filename}`; db.payment_settings=s; writeDB(db);
-   res.json({message:"Logo uploaded successfully",logo_url:s[req.params.method].logo_url,payment_settings:s});
- });
-});
-app.put("/api/admin/payment-settings",admin,(req,res)=>{
- const db=readDB(),body=req.body||{},s=db.payment_settings;
- for(const m of ["bkash","nagad","bkash_merchant"]){
-   const x=body[m]||{};
-   if(x.number!==undefined) s[m].number=String(x.number).trim();
-   if(x.label!==undefined) s[m].label=String(x.label).trim()||"Personal";
-   if(x.enabled!==undefined) s[m].enabled=!!x.enabled;
-   if(x.logo_url!==undefined) s[m].logo_url=String(x.logo_url).trim();
- }
- if(body.min_deposit!==undefined){const n=Number(body.min_deposit);if(!Number.isFinite(n)||n<1)return res.status(400).json({message:"Minimum deposit must be at least 1"});s.min_deposit=n}
- if(Array.isArray(body.instructions)) s.instructions=body.instructions.map(x=>String(x).trim()).filter(Boolean).slice(0,10);
- writeDB(db);res.json({message:"Payment settings saved",payment_settings:s});
-});
+app.post("/api/admin/payment-methods/upload",admin,upload.single("logo"),(req,res)=>{if(!req.file)return res.status(400).json({message:"Logo file required"});if(!/^image\/(png|jpe?g|webp)$/.test(req.file.mimetype))return res.status(400).json({message:"Only PNG, JPG or WEBP logos are allowed"});res.json({logo_url:"/uploads/"+req.file.filename});});
+app.post("/api/admin/payment-methods",admin,(req,res)=>{const db=readDB(),s=db.payment_settings,b=req.body||{};if(!b.name||!String(b.name).trim())return res.status(400).json({message:"Payment name is required"});s.methods ||= []; const base=String(b.id||('pm_'+Date.now()+'_'+crypto.randomBytes(3).toString('hex'))); if(s.methods.some(m=>m.id===base))return res.status(409).json({message:"Payment method ID already exists"});const m={id:base,name:String(b.name).trim().slice(0,60),label:String(b.label||'Payment').trim().slice(0,40),number:String(b.number||'').trim().slice(0,80),logo_url:String(b.logo_url||'').trim(),enabled:b.enabled!==false,sort_order:Number(b.sort_order)||s.methods.length};s.methods.push(m);s.methods.forEach((x,i)=>x.sort_order=i);audit(db,req,'payment_method_create',{id:m.id,name:m.name});writeDB(db);res.json({message:'Payment method created',method:m,payment_settings:s});});
+app.put("/api/admin/payment-methods/:id",admin,(req,res)=>{const db=readDB(),s=db.payment_settings,b=req.body||{},m=(s.methods||[]).find(x=>String(x.id)===String(req.params.id));if(!m)return res.status(404).json({message:'Payment method not found'});['name','label','number','logo_url'].forEach(k=>{if(b[k]!==undefined)m[k]=String(b[k]).trim().slice(0,k==='name'?60:k==='label'?40:100)});if(b.enabled!==undefined)m.enabled=!!b.enabled;if(b.sort_order!==undefined)m.sort_order=Math.max(0,Number(b.sort_order)||0);s.methods.sort((a,b)=>a.sort_order-b.sort_order).forEach((x,i)=>x.sort_order=i);audit(db,req,'payment_method_update',{id:m.id,name:m.name});writeDB(db);res.json({message:'Payment method updated',method:m,payment_settings:s});});
+app.delete("/api/admin/payment-methods/:id",admin,(req,res)=>{const db=readDB(),s=db.payment_settings||{},before=s.methods||[],m=before.find(x=>String(x.id)===String(req.params.id));if(!m)return res.status(404).json({message:'Payment method not found'});s.methods=before.filter(x=>String(x.id)!==String(req.params.id)).sort((a,b)=>a.sort_order-b.sort_order).map((x,i)=>({...x,sort_order:i}));audit(db,req,'payment_method_delete',{id:m.id,name:m.name});writeDB(db);res.json({message:'Payment method deleted',payment_settings:s});});
+app.put("/api/admin/payment-methods-reorder",admin,(req,res)=>{const db=readDB(),s=db.payment_settings||{},ids=Array.isArray(req.body?.ids)?req.body.ids.map(String):[];if(!ids.length)return res.status(400).json({message:'ids required'});const map=new Map((s.methods||[]).map(x=>[String(x.id),x]));const ordered=ids.map(id=>map.get(id)).filter(Boolean);(s.methods||[]).filter(x=>!ids.includes(String(x.id))).forEach(x=>ordered.push(x));s.methods=ordered.map((x,i)=>({...x,sort_order:i}));audit(db,req,'payment_method_reorder',{ids:s.methods.map(x=>x.id)});writeDB(db);res.json({message:'Payment order saved',payment_settings:s});});
+app.put("/api/admin/payment-settings",admin,(req,res)=>{const db=readDB(),body=req.body||{},s=db.payment_settings;if(body.min_deposit!==undefined){const n=Number(body.min_deposit);if(!Number.isFinite(n)||n<1)return res.status(400).json({message:"Minimum deposit must be at least 1"});s.min_deposit=n}if(Array.isArray(body.instructions))s.instructions=body.instructions.map(x=>String(x).trim()).filter(Boolean).slice(0,10);writeDB(db);res.json({message:"Payment settings saved",payment_settings:s});});
 app.get("/api/admin/match-settings",admin,(req,res)=>res.json({match_settings:readDB().match_settings}));
 app.put("/api/admin/match-settings",admin,(req,res)=>{const db=readDB(),b=req.body||{},s=db.match_settings||{};if(b.players_to_close!==undefined)s.players_to_close=Math.max(2,Number(b.players_to_close)||2);if(b.show_room_after_full!==undefined)s.show_room_after_full=!!b.show_room_after_full;if(b.one_screenshot_per_match!==undefined)s.one_screenshot_per_match=!!b.one_screenshot_per_match;["my_match_label","upload_label","success_message"].forEach(k=>{if(b[k]!==undefined)s[k]=String(b[k]);});db.match_settings=s;writeDB(db);res.json({message:"Match settings saved",match_settings:s});});
 app.get("/api/admin/profile-settings",admin,(req,res)=>res.json({profile_settings:readDB().profile_settings}));
