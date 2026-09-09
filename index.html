@@ -930,9 +930,14 @@ function renderPaymentMethods(){
     const list=Array.isArray(paymentSettings.instructions)?paymentSettings.instructions:[]; $("depositInstructions").innerHTML=list.length?`<h3>📌 Deposit করার নিয়ম</h3><ol>${list.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol>`:'';
 }
 
+function getPaymentMethod(method){
+    const id=String(method);
+    return (paymentSettings?.methods||[]).find(m=>String(m.id)===id) || paymentSettings?.[id] || null;
+}
 function selectMethod(method){
-    if(!paymentSettings?.[method] || paymentSettings[method].enabled===false)return;
-    depositMethod=method;
+    const pm=getPaymentMethod(method);
+    if(!pm || pm.enabled===false)return;
+    depositMethod=String(method);
     renderPaymentMethods();
     setTimeout(()=>{
       const el=$("num-"+method);
@@ -941,7 +946,7 @@ function selectMethod(method){
 }
 
 async function copyPaymentNumber(method){
-    const n=paymentSettings?.[method]?.number||"";
+    const n=getPaymentMethod(method)?.number||"";
     if(!n)return;
     const safeId=String(method).replace(/[^A-Za-z0-9_-]/g,'_'); const btn=$("copy-"+safeId);
     try{await navigator.clipboard.writeText(n);}catch(e){
