@@ -23,7 +23,7 @@ const OTP_TTL_MS=5*60*1000;
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
-if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg?v=2"},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg?v=2"},bkash_merchant:{number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg?v=2"},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},maintenance:{enabled:false,title:"🔧 Update চলছে",message:"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।",footer:"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️",button_text:"🔄 আবার চেষ্টা করুন"},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
+if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg?v=3"},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg?v=3"},bkash_merchant:{number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg?v=3"},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},maintenance:{enabled:false,title:"🔧 Update চলছে",message:"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।",footer:"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️",button_text:"🔄 আবার চেষ্টা করুন"},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
 
 function readDB(){
   const db=JSON.parse(fs.readFileSync(DB_FILE,"utf8"));
@@ -38,12 +38,12 @@ function readDB(){
       "সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"
     ]
   };
-  db.payment_settings.bkash ||= {number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg?v=2"};
-  db.payment_settings.nagad ||= {number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg?v=2"};
-  db.payment_settings.bkash_merchant ||= {number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg?v=2"};
-  if(!db.payment_settings.bkash.logo_url) db.payment_settings.bkash.logo_url="/payment-logos/bkash-personal.jpg?v=2";
-  if(!db.payment_settings.nagad.logo_url) db.payment_settings.nagad.logo_url="/payment-logos/nagad-personal.jpg?v=2";
-  if(!db.payment_settings.bkash_merchant.logo_url) db.payment_settings.bkash_merchant.logo_url="/payment-logos/bkash-merchant.jpg?v=2";
+  db.payment_settings.bkash ||= {number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg?v=3"};
+  db.payment_settings.nagad ||= {number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg?v=3"};
+  db.payment_settings.bkash_merchant ||= {number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg?v=3"};
+  if(!db.payment_settings.bkash.logo_url) db.payment_settings.bkash.logo_url="/payment-logos/bkash-personal.jpg?v=3";
+  if(!db.payment_settings.nagad.logo_url) db.payment_settings.nagad.logo_url="/payment-logos/nagad-personal.jpg?v=3";
+  if(!db.payment_settings.bkash_merchant.logo_url) db.payment_settings.bkash_merchant.logo_url="/payment-logos/bkash-merchant.jpg?v=3";
   db.payment_settings.min_deposit=Number(db.payment_settings.min_deposit)||10;
   if(!Array.isArray(db.payment_settings.instructions)) db.payment_settings.instructions=[];
   db.profile_settings ||= {};
@@ -290,6 +290,80 @@ app.post("/api/matches/:id/join",auth,(req,res)=>{
  writeDB(db);
  res.json({message:newCount>=threshold?"Match joined. 2 players joined, match is now closed.":"Match joined successfully",full:newCount>=threshold,room_id:(newCount>=threshold&&db.match_settings?.show_room_after_full!==false)?(m.room_id||""):""});
 });
+
+// ===================== REAL-TIME LUDO GAME ENGINE =====================
+const LUDO_PATH=52, LUDO_FINISH=57;
+function gamePlayers(db,matchId){
+  return db.match_players.filter(x=>x.match_id===matchId).sort((a,b)=>a.id-b.id).map((p,i)=>{
+    const u=db.users.find(x=>x.id===p.user_id);
+    return {slot:i,user_id:p.user_id,name:u?.name||("Player "+(i+1)),uid:u?.uid_code||"",color:["red","green","yellow","blue"][i]};
+  });
+}
+function ensureGame(db,m){
+  const players=gamePlayers(db,m.id), max=Math.min(Number(m.max_players)||2,4);
+  if(!m.game) m.game={mode:max>=4?4:2,started:false,turn:0,turn_user_id:null,dice:null,rolled:false,winner_user_id:null,last_action:null,updated_at:new Date().toISOString(),players:players.map(p=>({user_id:p.user_id,slot:p.slot,tokens:[-1,-1,-1,-1],finished:0}))};
+  m.game.mode=max>=4?4:2;
+  const currentIds=new Set(m.game.players.map(p=>p.user_id));
+  players.forEach(p=>{if(!currentIds.has(p.user_id))m.game.players.push({user_id:p.user_id,slot:p.slot,tokens:[-1,-1,-1,-1],finished:0});});
+  if(m.status==='full' && !m.game.started){m.game.started=true;m.game.turn=0;m.game.turn_user_id=m.game.players[0]?.user_id||null;}
+  m.game.updated_at=m.game.updated_at||new Date().toISOString();
+  return m.game;
+}
+function publicGame(db,m){
+  const g=ensureGame(db,m), players=gamePlayers(db,m.id);
+  return {match_id:m.id,title:m.title,mode:g.mode,started:g.started,turn:g.turn,turn_user_id:g.turn_user_id,dice:g.dice,rolled:g.rolled,winner_user_id:g.winner_user_id,last_action:g.last_action,updated_at:g.updated_at,players:g.players.map(gp=>{const p=players.find(x=>x.user_id===gp.user_id)||{};return {...gp,name:p.name,uid:p.uid,color:p.color};})};
+}
+function advanceTurn(g){
+  if(!g.players.length)return;
+  g.turn=(g.turn+1)%g.players.length; g.turn_user_id=g.players[g.turn].user_id; g.dice=null;g.rolled=false;
+}
+function hasValidMove(tokens,dice){return tokens.some(pos=>pos<0?dice===6:pos+dice<=LUDO_FINISH);}
+function boardCoord(slot,pos){if(pos<0||pos>=LUDO_FINISH)return null;return (slot*13+pos)%LUDO_PATH;}
+function capture(db,m,g,uid,movedToken){
+  const me=g.players.find(p=>p.user_id===uid), coord=boardCoord(me.slot,movedToken); if(coord===null||[0,8,13,21,26,34,39,47].includes(coord))return 0;
+  let count=0;
+  g.players.forEach(op=>{if(op.user_id===uid)return;op.tokens=op.tokens.map(pos=>{if(boardCoord(op.slot,pos)===coord){count++;return -1}return pos});});
+  return count;
+}
+app.get('/api/game/:id',auth,(req,res)=>{
+  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:'Match not found'});
+  const joined=db.match_players.some(p=>p.match_id===m.id&&p.user_id===req.user.id);if(!joined)return res.status(403).json({message:'Join the match first'});
+  const g=ensureGame(db,m);writeDB(db);res.json({game:publicGame(db,m),you:req.user.id});
+});
+app.post('/api/game/:id/roll',auth,(req,res)=>{
+  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:'Match not found'});
+  const g=ensureGame(db,m),me=g.players.find(p=>p.user_id===req.user.id);if(!me)return res.status(403).json({message:'Join the match first'});
+  if(!g.started)return res.status(400).json({message:'Waiting for match to start'});
+  if(g.winner_user_id)return res.status(400).json({message:'Match already finished'});
+  if(g.turn_user_id!==req.user.id)return res.status(400).json({message:'Not your turn'});
+  if(g.rolled)return res.status(400).json({message:'You already rolled. Move a token.'});
+  const dice=Math.floor(Math.random()*6)+1;g.dice=dice;g.rolled=true;
+  if(!hasValidMove(me.tokens,dice)){g.last_action={type:'roll',user_id:req.user.id,dice,message:'No valid move'};if(dice!==6)advanceTurn(g);else{g.dice=null;g.rolled=false;} }
+  else g.last_action={type:'roll',user_id:req.user.id,dice};
+  g.updated_at=new Date().toISOString();writeDB(db);res.json({game:publicGame(db,m),you:req.user.id});
+});
+app.post('/api/game/:id/move',auth,(req,res)=>{
+  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:'Match not found'});
+  const g=ensureGame(db,m),me=g.players.find(p=>p.user_id===req.user.id),idx=Number(req.body.token_index);
+  if(!me)return res.status(403).json({message:'Join the match first'});
+  if(g.turn_user_id!==req.user.id)return res.status(400).json({message:'Not your turn'});
+  if(!g.rolled||!g.dice)return res.status(400).json({message:'Roll the dice first'});
+  if(!Number.isInteger(idx)||idx<0||idx>3)return res.status(400).json({message:'Invalid token'});
+  let pos=me.tokens[idx],dice=g.dice;
+  if(pos<0){if(dice!==6)return res.status(400).json({message:'Token needs a 6 to leave home'});pos=0;}else{if(pos+dice>LUDO_FINISH)return res.status(400).json({message:'That token cannot move that far'});pos+=dice;}
+  me.tokens[idx]=pos;if(pos===LUDO_FINISH)me.finished=(me.finished||0)+1;
+  const captured=capture(db,m,g,req.user.id,pos);
+  const won=me.tokens.every(x=>x===LUDO_FINISH);
+  if(won){g.winner_user_id=req.user.id;m.status='completed';m.winner_user_id=req.user.id;g.last_action={type:'winner',user_id:req.user.id,dice,captured,message:'Winner!'};g.dice=null;g.rolled=false;}
+  else {g.last_action={type:'move',user_id:req.user.id,token_index:idx,dice,captured};if(dice!==6&&captured===0)advanceTurn(g);else{g.dice=null;g.rolled=false;}}
+  g.updated_at=new Date().toISOString();writeDB(db);res.json({game:publicGame(db,m),you:req.user.id});
+});
+app.post('/api/game/:id/reconnect',auth,(req,res)=>{
+  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:'Match not found'});
+  if(!db.match_players.some(p=>p.match_id===m.id&&p.user_id===req.user.id))return res.status(403).json({message:'Join the match first'});
+  const g=ensureGame(db,m);g.last_action={type:'reconnect',user_id:req.user.id};g.updated_at=new Date().toISOString();writeDB(db);res.json({game:publicGame(db,m),you:req.user.id});
+});
+
 app.get("/api/payment-settings",(req,res)=>{
  const s=readDB().payment_settings;
  res.json({payment_settings:s});

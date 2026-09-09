@@ -333,6 +333,8 @@ nav button.active{
 }
 
 .statement-item{display:flex;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid #eef2f7}.statement-item:last-child{border-bottom:0}.statement-main{min-width:0}.statement-title{font-weight:800}.statement-meta{font-size:11px;color:#64748b;margin-top:4px;line-height:1.45}.statement-amount{font-weight:900;white-space:nowrap}.plus{color:#16a34a}.minus{color:#dc2626}.profile-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}.profile-avatar{width:64px;height:64px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:34px;overflow:hidden;border:2px solid #e5e7eb}.profile-avatar img{width:100%;height:100%;object-fit:cover}.profile-stat{display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:13px;margin:8px 0}.uid-copy{display:flex;align-items:center;gap:7px}.tiny-copy{border:0;background:#e5e7eb;border-radius:7px;padding:6px 8px;font-weight:800;font-size:11px}.profile-link{display:block;text-decoration:none}.settings-note{font-size:12px;color:#64748b;margin:6px 0 12px}
+
+.ludo-game{background:#fff;border-radius:18px;padding:14px;box-shadow:0 8px 28px #0001;margin-top:12px}.ludo-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.ludo-board{display:grid;grid-template-columns:repeat(13,1fr);gap:3px;background:#e5e7eb;padding:5px;border-radius:14px;margin-top:12px}.lcell{aspect-ratio:1;border-radius:5px;background:#f9fafb;display:flex;align-items:center;justify-content:center;font-size:11px;position:relative}.lcell.safe{box-shadow:inset 0 0 0 2px #16a34a}.ltoken{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;background:#fff;border:2px solid #111;cursor:pointer}.home-tokens{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.token-btn{padding:10px;border:0;border-radius:10px;background:#f3f4f6;font-weight:800}.dice{font-size:36px;font-weight:900;min-width:55px;text-align:center}.game-note{padding:10px;background:#f8fafc;border-radius:10px;margin-top:10px;font-size:13px}.player-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.player-pill{padding:6px 9px;border-radius:999px;background:#f3f4f6;font-size:12px}.player-pill.active{outline:2px solid #16a34a}
 </style>
 </head>
 
@@ -538,6 +540,15 @@ nav button.active{
     </div>
 </section>
 
+
+<!-- LIVE LUDO GAME -->
+<section id="page-game" class="hidden">
+  <div class="card">
+    <div class="section-title">🎲 Live Ludo Game</div>
+    <div id="gameRoot" class="ludo-game">Match select করুন।</div>
+  </div>
+</section>
+
 <!-- PROFILE -->
 <section id="page-profile" class="hidden">
     <div class="card">
@@ -589,6 +600,8 @@ nav button.active{
     <button id="nav-matches" onclick="showPage('matches')">
         <span class="nav-icon">🏆</span>Match
     </button>
+
+    <button id="nav-game" onclick="showPage('game')"><span class="nav-icon">🎲</span>Game</button>
 
     <button id="nav-mymatches" onclick="showPage('mymatches')">
         <span class="nav-icon">🎉</span>My Match
@@ -774,6 +787,7 @@ function showPage(page){
 
     localStorage.setItem("ludo_income_page",page);
     if(page==="mymatches") loadMyMatches();
+    if(page==="game" && activeGameId) loadGame();
     if(page==="profile") loadUser();
 
     window.scrollTo({
@@ -885,10 +899,25 @@ async function loadMyMatches(){
             const submitted=!!m.submission;
             const room=m.full&&m.room_id ? `<div class="copy"><b>🔐 Room Code:</b> ${escapeHtml(m.room_id)} <button class="tiny-copy" onclick="copyText('${escapeHtml(m.room_id)}')">Copy</button><div class="required-note">এই Room Code শুধু এই Match-এর joined 2 জন Player দেখতে পারবে।</div></div>` : `<div class="required-note">🔒 ২ জন Player Join হলে Room Code দেখা যাবে।</div>`;
             const upload=submitted?`<div class="success-box">✅ Screenshot ${m.submission.status==='approved'?'approved':'submitted'} — আর submit করা যাবে না.</div>`:`<div class="form-group"><label>${escapeHtml(settings.upload_label||"📸 Upload Winning Screenshot")}</label><input id="shot-${m.id}" type="file" accept="image/*"><button class="btn btn-green" onclick="submitMyMatchScreenshot(${m.id})">Submit Screenshot</button></div>`;
-            return `<div class="match"><div class="match-top"><div><div class="match-title">${escapeHtml(m.title)}</div><small>Match ID: ${m.id}</small></div><span class="badge">${escapeHtml(m.status)}</span></div><div class="match-info"><div class="info"><small>Entry</small><b>৳${money(m.entry_fee)}</b></div><div class="info"><small>Prize</small><b>৳${money(m.prize)}</b></div><div class="info"><small>Players</small><b>${m.players}/2</b></div><div class="info"><small>Joined</small><b>${new Date(m.joined_at).toLocaleString("en-BD",{dateStyle:"medium",timeStyle:"short"})}</b></div></div>${room}${upload}</div>`;
+            return `<div class="match"><div class="match-top"><div><div class="match-title">${escapeHtml(m.title)}</div><small>Match ID: ${m.id}</small></div><span class="badge">${escapeHtml(m.status)}</span></div><div class="match-info"><div class="info"><small>Entry</small><b>৳${money(m.entry_fee)}</b></div><div class="info"><small>Prize</small><b>৳${money(m.prize)}</b></div><div class="info"><small>Players</small><b>${m.players}/2</b></div><div class="info"><small>Joined</small><b>${new Date(m.joined_at).toLocaleString("en-BD",{dateStyle:"medium",timeStyle:"short"})}</b></div></div>${room}${upload}${m.full&&m.status!=='cancelled'&&m.status!=='completed'?`<button class="btn btn-green" onclick="startGame(${m.id})">🎲 Play Ludo</button>`:''}</div>`;
         }).join("");
     }catch(e){$("myMatchesList").innerHTML=`<div class="empty">My Match load করা যাচ্ছে না।</div>`;}
 }
+
+
+let activeGameId=null,gameTimer=null,gameData=null,gameYou=null;
+function startGame(matchId){activeGameId=Number(matchId);showPage('game');loadGame();clearInterval(gameTimer);gameTimer=setInterval(loadGame,1500);}
+async function loadGame(){if(!activeGameId)return;try{const d=await api('/api/game/'+activeGameId);gameData=d.game;gameYou=d.you;renderGame();}catch(e){$('gameRoot').innerHTML='<div class="empty">'+escapeHtml(e.message)+'</div>';}}
+function renderGame(){const g=gameData;if(!g)return;const me=g.players.find(p=>p.user_id===gameYou);let html='<div class="ludo-head"><div><b>'+escapeHtml(g.title||'Ludo Match')+'</b><div class="muted">'+g.mode+' Player • '+(g.started?'Live':'Waiting')+'</div></div><div class="dice">'+(g.dice||'🎲')+'</div><button class="btn btn-green" onclick="rollGame()" '+((!g.started||g.turn_user_id!==gameYou||g.rolled||g.winner_user_id)?'disabled':'')+'>Roll Dice</button></div>';
+html+='<div class="player-list">'+g.players.map(p=>'<span class="player-pill '+(p.user_id===g.turn_user_id?'active':'')+'">'+escapeHtml(p.name||'Player')+' • '+escapeHtml(p.color||'')+'</span>').join('')+'</div>';
+html+='<div class="game-note">'+(g.winner_user_id?'🏆 Match Finished':g.turn_user_id===gameYou?(g.rolled?'Choose a token below':'Your turn — Roll the dice'):'Opponent turn — live updates every 1.5s')+'</div>';
+html+='<div class="home-tokens">'+(me?me.tokens.map((pos,i)=>'<button class="token-btn" onclick="moveGame('+i+')">🟠 Token '+(i+1)+'<br><small>'+tokenLabel(pos)+'</small></button>').join(''):'')+'</div>';
+html+='<div class="ludo-board">'+Array.from({length:52},(_,i)=>{const occ=[];g.players.forEach(p=>p.tokens.forEach((pos,t)=>{if(pos>=0&&pos<57&&(p.slot*13+pos)%52===i)occ.push('<span class="ltoken">'+(p.slot+1)+'</span>')}));return '<div class="lcell '+([0,8,13,21,26,34,39,47].includes(i)?'safe':'')+'">'+i+(occ.length?'<br>'+occ.join(''): '')+'</div>'}).join('')+'</div>';
+html+='<div class="game-note">🎯 Safe cells: 0, 8, 13, 21, 26, 34, 39, 47 • 6 দিলে Home থেকে token বের হবে • 57 এ পৌঁছালে token finished</div>';
+$('gameRoot').innerHTML=html;}
+function tokenLabel(p){if(p<0)return'Home';if(p>=57)return'Finished';return'Path '+p;}
+async function rollGame(){try{const d=await api('/api/game/'+activeGameId+'/roll',{method:'POST'});gameData=d.game;renderGame();}catch(e){alert(e.message)}}
+async function moveGame(i){try{const d=await api('/api/game/'+activeGameId+'/move',{method:'POST',body:JSON.stringify({token_index:i})});gameData=d.game;renderGame();}catch(e){alert(e.message)}}
 
 async function submitMyMatchScreenshot(matchId){
     const file=$("shot-"+matchId)?.files?.[0];
@@ -925,9 +954,9 @@ function renderPaymentMethods(){
     if(!methods.length){box.innerHTML='<div class="empty">কোনো payment method চালু নেই।</div>';return;}
     if(!methods.includes(depositMethod)) depositMethod="";
     const meta={
-      bkash:{name:"bKash",label:"Personal",logo:"/payment-logos/bkash-personal.jpg?v=2"},
-      nagad:{name:"Nagad",label:"Personal",logo:"/payment-logos/nagad-personal.jpg?v=2"},
-      bkash_merchant:{name:"bKash Merchant",label:"Merchant",logo:"/payment-logos/bkash-merchant.jpg?v=2"}
+      bkash:{name:"bKash",label:"Personal",logo:"/payment-logos/bkash-personal.jpg?v=3"},
+      nagad:{name:"Nagad",label:"Personal",logo:"/payment-logos/nagad-personal.jpg?v=3"},
+      bkash_merchant:{name:"bKash Merchant",label:"Merchant",logo:"/payment-logos/bkash-merchant.jpg?v=3"}
     };
     box.innerHTML=methods.map(m=>{
         const s=paymentSettings[m], info=meta[m], shown=depositMethod===m;
