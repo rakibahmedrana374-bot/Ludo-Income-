@@ -109,7 +109,7 @@ header{
 .action:hover{background:#bbf7d0}
 
 
-.payment-methods{display:grid;grid-template-columns:1fr;gap:12px;margin:12px 0}.payment-card{border:2px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px;text-align:left;transition:.15s}.payment-card.active{border-color:#16a34a;background:#f0fdf4;box-shadow:0 4px 14px #16a34a22}.pay-brand{display:flex;align-items:center;gap:10px;font-weight:900}.pay-brand-name{font-weight:900;font-size:18px}.pay-logo-btn{border:0;background:transparent;padding:0;border-radius:14px;cursor:pointer;line-height:0}.pay-logo-img{width:68px;height:68px;object-fit:cover;border-radius:14px;display:block}.pay-status{font-size:18px;color:#16a34a;font-weight:900;min-width:24px;text-align:center}.pay-number{font-size:20px;font-weight:900;letter-spacing:.3px}.tap-note{font-size:12px;color:#64748b;margin-top:9px}.copy-btn.copied{background:#dcfce7;color:#166534}.pay-label{font-size:12px;color:#64748b;margin-top:3px}.copy-btn{border:0;background:#e2e8f0;border-radius:9px;padding:9px 12px;font-weight:800}.payment-row{display:flex;align-items:center;justify-content:space-between;gap:8px}.revealed-number{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;padding:10px 0 2px;border-top:1px dashed #cbd5e1}.instructions{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin:12px 0}.instructions h3{font-size:15px;margin-bottom:8px}.instructions ol{padding-left:22px}.instructions li{margin:7px 0;line-height:1.45}.required-note{font-size:12px;color:#b91c1c;margin-top:5px;font-weight:700}
+.payment-methods{display:grid;grid-template-columns:1fr;gap:12px;margin:12px 0}.payment-card{border:2px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px;text-align:left;transition:.15s}.payment-card.active{border-color:#16a34a;background:#f0fdf4;box-shadow:0 4px 14px #16a34a22}.pay-brand{display:flex;align-items:center;gap:10px;font-weight:900}.pay-brand-name{font-weight:900;font-size:18px}.pay-logo-btn{border:0;background:transparent;padding:0;border-radius:14px;cursor:pointer;line-height:0}.pay-logo-img{width:78px;height:78px;object-fit:contain;border-radius:14px;display:block}.pay-status{font-size:18px;color:#16a34a;font-weight:900;min-width:24px;text-align:center}.pay-number{font-size:20px;font-weight:900;letter-spacing:.3px}.tap-note{font-size:12px;color:#64748b;margin-top:9px}.copy-btn.copied{background:#dcfce7;color:#166534}.pay-label{font-size:12px;color:#64748b;margin-top:3px}.copy-btn{border:0;background:#e2e8f0;border-radius:9px;padding:9px 12px;font-weight:800}.payment-row{display:flex;align-items:center;justify-content:space-between;gap:8px}.revealed-number{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;padding:10px 0 2px;border-top:1px dashed #cbd5e1}.instructions{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin:12px 0}.instructions h3{font-size:15px;margin-bottom:8px}.instructions ol{padding-left:22px}.instructions li{margin:7px 0;line-height:1.45}.required-note{font-size:12px;color:#b91c1c;margin-top:5px;font-weight:700}
 
 .section-title{
     font-size:18px;
@@ -902,10 +902,10 @@ function renderPaymentMethods(){
     };
     box.innerHTML=methods.map(m=>{
         const s=paymentSettings[m], info=meta[m], shown=depositMethod===m;
-        return `<div class="payment-card ${shown?'active':''}">
+        return `<div class="payment-card ${shown?'active':''}" role="button" tabindex="0" onclick="selectMethod('${m}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectMethod('${m}')}">
           <div class="payment-row">
             <div class="pay-brand">
-              <button type="button" class="pay-logo-btn" aria-label="${escapeHtml(info.name)} logo" onclick="selectMethod('${m}')">
+              <button type="button" class="pay-logo-btn" aria-label="${escapeHtml(info.name)} logo" onclick="event.stopPropagation();selectMethod('${m}')">
                 <img class="pay-logo-img" src="${info.logo}" alt="${escapeHtml(info.name)} logo">
               </button>
               <div><div class="pay-brand-name">${escapeHtml(info.name)}</div><div class="pay-label">${escapeHtml(s.label||info.label)}</div></div>
@@ -913,7 +913,7 @@ function renderPaymentMethods(){
             <div class="pay-status">${shown?'✓':''}</div>
           </div>
           <div class="tap-note">${shown?'নম্বর দেখা যাচ্ছে':'লোগোতে চাপ দিলে নম্বর দেখাবে'}</div>
-          ${shown?`<div class="revealed-number"><b class="pay-number" id="num-${m}">${escapeHtml(s.number||'-')}</b><button type="button" class="copy-btn" id="copy-${m}" onclick="copyPaymentNumber('${m}')">Copy</button></div>`:''}
+          ${shown?`<div class="revealed-number"><b class="pay-number" id="num-${m}">${escapeHtml(s.number||'-')}</b><button type="button" class="copy-btn" id="copy-${m}" onclick="event.stopPropagation();copyPaymentNumber('${m}')">Copy</button></div>`:''}
         </div>`;
     }).join("");
     const min=Number(paymentSettings.min_deposit||10);
