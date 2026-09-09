@@ -20,7 +20,7 @@ const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
-if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},maintenance:{enabled:false,title:"🔧 Update চলছে",message:"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।",footer:"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️",button_text:"🔄 আবার চেষ্টা করুন"},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
+if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg"},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg"},bkash_merchant:{number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg"},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},maintenance:{enabled:false,title:"🔧 Update চলছে",message:"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।",footer:"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️",button_text:"🔄 আবার চেষ্টা করুন"},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
 
 function readDB(){
   const db=JSON.parse(fs.readFileSync(DB_FILE,"utf8"));
@@ -35,8 +35,12 @@ function readDB(){
       "সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"
     ]
   };
-  db.payment_settings.bkash ||= {number:"01301470686",label:"Personal",enabled:true,logo_url:""};
-  db.payment_settings.nagad ||= {number:"01806097369",label:"Personal",enabled:true,logo_url:""};
+  db.payment_settings.bkash ||= {number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg"};
+  db.payment_settings.nagad ||= {number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg"};
+  db.payment_settings.bkash_merchant ||= {number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg"};
+  if(!db.payment_settings.bkash.logo_url) db.payment_settings.bkash.logo_url="/payment-logos/bkash-personal.jpg";
+  if(!db.payment_settings.nagad.logo_url) db.payment_settings.nagad.logo_url="/payment-logos/nagad-personal.jpg";
+  if(!db.payment_settings.bkash_merchant.logo_url) db.payment_settings.bkash_merchant.logo_url="/payment-logos/bkash-merchant.jpg";
   db.payment_settings.min_deposit=Number(db.payment_settings.min_deposit)||10;
   if(!Array.isArray(db.payment_settings.instructions)) db.payment_settings.instructions=[];
   db.profile_settings ||= {};
@@ -181,7 +185,7 @@ app.get("/api/payment-settings",(req,res)=>{
 app.post("/api/deposit",auth,(req,res)=>{
  const db=readDB(),amount=Number(req.body.amount),method=String(req.body.method||"").toLowerCase(),tx=String(req.body.transaction_id||"").trim();
  const s=db.payment_settings;
- if(!["bkash","nagad"].includes(method)) return res.status(400).json({message:"Invalid payment method"});
+ if(!["bkash","nagad","bkash_merchant"].includes(method)) return res.status(400).json({message:"Invalid payment method"});
  if(!s[method] || s[method].enabled===false) return res.status(400).json({message:"এই payment method এখন বন্ধ আছে"});
  if(!amount||amount<=0) return res.status(400).json({message:"সঠিক amount দিন"});
  if(amount<Number(s.min_deposit||10)) return res.status(400).json({message:"Minimum deposit is ৳"+Number(s.min_deposit||10)});
@@ -305,7 +309,7 @@ app.post("/api/admin/support/:id/reply",admin,(req,res)=>{const db=readDB(),s=db
 app.get("/api/admin/payment-settings",admin,(req,res)=>res.json({payment_settings:readDB().payment_settings}));
 app.put("/api/admin/payment-settings",admin,(req,res)=>{
  const db=readDB(),body=req.body||{},s=db.payment_settings;
- for(const m of ["bkash","nagad"]){
+ for(const m of ["bkash","nagad","bkash_merchant"]){
    const x=body[m]||{};
    if(x.number!==undefined) s[m].number=String(x.number).trim();
    if(x.label!==undefined) s[m].label=String(x.label).trim()||"Personal";

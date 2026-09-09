@@ -8,19 +8,44 @@
   "support_messages": [],
   "announcements": [],
   "payment_settings": {
-    "bkash": {"number":"01301470686","label":"Personal","enabled":true,"logo_url":""},
-    "nagad": {"number":"01806097369","label":"Personal","enabled":true,"logo_url":""},
+    "bkash": {
+      "number": "01301470686",
+      "label": "Personal",
+      "enabled": true,
+      "logo_url": "/payment-logos/bkash-personal.jpg"
+    },
+    "nagad": {
+      "number": "01806097369",
+      "label": "Personal",
+      "enabled": true,
+      "logo_url": "/payment-logos/nagad-personal.jpg"
+    },
     "min_deposit": 10,
     "instructions": [
       "কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।",
       "টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।",
       "Transaction ID অবশ্যই জমা দিতে হবে।",
       "সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"
-    ]
+    ],
+    "bkash_merchant": {
+      "number": "01301470686",
+      "label": "Merchant",
+      "enabled": true,
+      "logo_url": "/payment-logos/bkash-merchant.jpg"
+    }
   },
   "profile_settings": {
-    "uid_prefix":"LI","profile_logo":"👨‍🦱","show_name":true,"show_mobile":true,"show_uid":true,"show_matches":true,"show_referral":true,
-    "uid_label":"UID Code","mobile_label":"Mobile Number","matches_label":"🎮 Matches","statement_label":"📒 My Statement"
+    "uid_prefix": "LI",
+    "profile_logo": "👨‍🦱",
+    "show_name": true,
+    "show_mobile": true,
+    "show_uid": true,
+    "show_matches": true,
+    "show_referral": true,
+    "uid_label": "UID Code",
+    "mobile_label": "Mobile Number",
+    "matches_label": "🎮 Matches",
+    "statement_label": "📒 My Statement"
   },
   "match_settings": {
     "players_to_close": 2,
