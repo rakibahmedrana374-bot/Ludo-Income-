@@ -368,6 +368,7 @@ nav button.active{
         </div>
 
         <button class="btn btn-green" type="submit">Login</button>
+        <button type="button" class="btn" style="margin-top:8px;background:#f3f4f6;color:#111827" onclick="showForgot()">Forgot Password?</button>
     </form>
 
     <form id="registerForm" class="hidden">
@@ -390,6 +391,20 @@ nav button.active{
     </form>
 
 </div>
+</div>
+
+
+<div id="forgotModal" class="auth hidden" style="position:fixed;inset:0;z-index:99;background:#0008">
+ <div class="auth-card">
+  <h2>🔐 Reset Password</h2><p class="settings-note">OTP expires in 5 minutes.</p>
+  <div class="form-group"><label>Mobile Number</label><input id="forgotMobile" type="tel" placeholder="01XXXXXXXXX"></div>
+  <button class="btn" onclick="requestForgotOtp()">Send OTP</button>
+  <div class="form-group"><label>OTP</label><input id="forgotOtp" inputmode="numeric" maxlength="6" placeholder="6 digit OTP"></div>
+  <div class="form-group"><label>New Password</label><input id="forgotPassword" type="password" minlength="6" placeholder="Minimum 6 characters"></div>
+  <button class="btn btn-green" onclick="resetForgotPassword()">Reset Password</button>
+  <button class="btn" style="margin-top:8px;background:#f3f4f6;color:#111827" onclick="closeForgot()">Cancel</button>
+  <div id="forgotMsg"></div>
+ </div>
 </div>
 
 <!-- APP -->
@@ -539,6 +554,12 @@ nav button.active{
         <div id="profileMatchesRow" class="profile-stat"><span id="profileMatchesLabel">🎮 Matches</span><b id="profileMatches">0</b></div>
         <div id="profileReferralRow" class="profile-stat"><span>Referral Code</span><div class="uid-copy"><b id="profileReferral">-</b><button class="tiny-copy" onclick="copyReferral()">Copy</button></div></div>
         <button id="statementProfileBtn" class="btn btn-green profile-link" onclick="showPage('history')">📒 My Statement</button>
+        <div class="card" style="margin-top:14px;padding:16px">
+            <h3 style="margin:0 0 10px">🔐 Account Security</h3>
+            <button class="btn btn-green" onclick="changePassword()">Change Password</button>
+            <button class="btn" style="margin-top:8px;background:#f3f4f6;color:#111827" onclick="changeMobile()">Change Mobile Number</button>
+        </div>
+
         <br>
         <button class="btn btn-red" onclick="logout()">Logout</button>
     </div>
@@ -641,6 +662,14 @@ async function api(path, options={}){
 
     return data;
 }
+
+
+function showForgot(){ $("forgotModal").classList.remove("hidden"); $("forgotMobile").focus(); }
+function closeForgot(){ $("forgotModal").classList.add("hidden"); }
+async function requestForgotOtp(){ try{ const d=await fetch("/api/auth/request-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mobile:$("forgotMobile").value.trim(),purpose:"reset_password"})}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.message||"Request failed");return x}); $("forgotMsg").innerHTML='<div class="msg success">'+escapeHtml(d.message)+'</div>'; }catch(e){$("forgotMsg").innerHTML='<div class="msg error">'+escapeHtml(e.message)+'</div>';}}
+async function resetForgotPassword(){ try{ const d=await fetch("/api/auth/forgot-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mobile:$("forgotMobile").value.trim(),otp:$("forgotOtp").value.trim(),password:$("forgotPassword").value})}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.message||"Request failed");return x}); alert(d.message); closeForgot(); showAuth("login"); }catch(e){alert(e.message);} }
+async function changePassword(){ const current=prompt("Current password:"); if(current===null)return; const next=prompt("New password (minimum 6 characters):"); if(next===null)return; try{const d=await api("/api/user/change-password",{method:"POST",body:JSON.stringify({current_password:current,new_password:next})});alert(d.message);}catch(e){alert(e.message)}}
+async function changeMobile(){ const mobile=prompt("New mobile number:"); if(mobile===null)return; try{await api("/api/user/request-mobile-change",{method:"POST",body:JSON.stringify({mobile:mobile.trim()})}); const otp=prompt("Enter the OTP sent to the new number:"); if(otp===null)return; const d=await api("/api/user/change-mobile",{method:"POST",body:JSON.stringify({mobile:mobile.trim(),otp:otp.trim()})}); alert(d.message); loadUser(); }catch(e){alert(e.message)}}
 
 /* AUTH */
 

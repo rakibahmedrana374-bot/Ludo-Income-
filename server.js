@@ -6,6 +6,7 @@ const path=require("path");
 const bcrypt=require("bcryptjs");
 const jwt=require("jsonwebtoken");
 const multer=require("multer");
+const crypto=require("crypto");
 
 const app=express();
 app.use(cors());
@@ -16,6 +17,8 @@ const PORT=process.env.PORT||3000;
 const JWT_SECRET=process.env.JWT_SECRET||"CHANGE_THIS_JWT_SECRET";
 const ADMIN_MOBILE=process.env.ADMIN_MOBILE||"01700000000";
 const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
+const SMS_WEBHOOK_URL=process.env.SMS_WEBHOOK_URL||"";
+const OTP_TTL_MS=5*60*1000;
 
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
@@ -115,18 +118,113 @@ function makeUid(db){
   return code;
 }
 
+
+function normalizeMobile(v){ return String(v||"").replace(/\D/g,""); }
+function validMobile(v){ return /^01\d{9}$/.test(String(v||"")); }
+async function sendOtp(mobile,otp,purpose){
+  if(SMS_WEBHOOK_URL){
+    try{
+      const r=await fetch(SMS_WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mobile,otp,purpose})});
+      if(!r.ok) throw new Error("SMS provider error");
+      return true;
+    }catch(e){ console.error("OTP SMS failed:",e.message); return false; }
+  }
+  console.log(`[LUDO INCOME OTP] ${purpose} -> ${mobile}: ${otp}`);
+  return true;
+}
+function issueOtp(db,mobile,purpose){
+  db.otps ||= [];
+  const code=String(crypto.randomInt(100000,1000000));
+  const now=Date.now();
+  db.otps=db.otps.filter(x=>!(x.mobile===mobile&&x.purpose===purpose));
+  db.otps.push({id:id(db.otps),mobile,purpose,code_hash:crypto.createHash("sha256").update(code).digest("hex"),expires_at:new Date(now+OTP_TTL_MS).toISOString(),attempts:0,created_at:new Date(now).toISOString()});
+  return code;
+}
+function consumeOtp(db,mobile,purpose,code){
+  const row=(db.otps||[]).find(x=>x.mobile===mobile&&x.purpose===purpose);
+  if(!row) return {ok:false,message:"OTP not found. Request a new OTP."};
+  if(new Date(row.expires_at).getTime()<Date.now()) return {ok:false,message:"OTP expired. Request a new OTP."};
+  if((row.attempts||0)>=5) return {ok:false,message:"Too many OTP attempts. Request a new OTP."};
+  row.attempts=(row.attempts||0)+1;
+  const h=crypto.createHash("sha256").update(String(code||"")).digest("hex");
+  if(h!==row.code_hash) return {ok:false,message:"Invalid OTP"};
+  db.otps=db.otps.filter(x=>x!==row); return {ok:true};
+}
+function ensureSecurity(db){
+  db.otps ||= [];
+  db.admin_settings ||= {};
+  if(!db.admin_settings.password_hash) db.admin_settings.password_hash=bcrypt.hashSync(ADMIN_PASSWORD,12);
+  db.admin_settings.mobile=db.admin_settings.mobile||ADMIN_MOBILE;
+  db.withdraw_settings ||= {min_withdraw:50,max_withdraw:50000,fee:0};
+  db.withdraw_settings.min_withdraw=Math.max(1,Number(db.withdraw_settings.min_withdraw)||50);
+  db.withdraw_settings.max_withdraw=Math.max(db.withdraw_settings.min_withdraw,Number(db.withdraw_settings.max_withdraw)||50000);
+  db.withdraw_settings.fee=Math.max(0,Number(db.withdraw_settings.fee)||0);
+}
+
+app.post("/api/auth/request-otp",async(req,res)=>{
+ const mobile=normalizeMobile(req.body.mobile),purpose=String(req.body.purpose||"");
+ if(!validMobile(mobile)) return res.status(400).json({message:"Valid Bangladesh mobile number required"});
+ if(!["register","reset_password","change_mobile"].includes(purpose)) return res.status(400).json({message:"Invalid OTP purpose"});
+ const db=readDB();
+ const recent=(db.otps||[]).find(x=>x.mobile===mobile&&x.purpose===purpose&&Date.now()-new Date(x.created_at).getTime()<60000);
+ if(recent) return res.status(429).json({message:"Please wait 60 seconds before requesting another OTP"});
+ if(purpose==="register" && db.users.some(u=>u.mobile===mobile)) return res.status(409).json({message:"Mobile already registered"});
+ if(purpose!=="register" && !db.users.some(u=>u.mobile===mobile)) return res.status(404).json({message:"Mobile number not found"});
+ const otp=issueOtp(db,mobile,purpose); writeDB(db);
+ const sent=await sendOtp(mobile,otp,purpose);
+ if(!sent) return res.status(503).json({message:"OTP delivery failed. Please try again."});
+ res.json({message:"OTP sent successfully",expires_in:300});
+});
+app.post("/api/auth/verify-otp",(req,res)=>{
+ const mobile=normalizeMobile(req.body.mobile),purpose=String(req.body.purpose||"");
+ const db=readDB(),result=consumeOtp(db,mobile,purpose,req.body.otp); writeDB(db);
+ if(!result.ok) return res.status(400).json({message:result.message});
+ res.json({verified:true});
+});
+app.post("/api/auth/forgot-password",async(req,res)=>{
+ const mobile=normalizeMobile(req.body.mobile),otp=String(req.body.otp||""),password=String(req.body.password||"");
+ if(!validMobile(mobile)) return res.status(400).json({message:"Valid Bangladesh mobile number required"});
+ if(password.length<6) return res.status(400).json({message:"Password must be at least 6 characters"});
+ const db=readDB(),u=db.users.find(x=>x.mobile===mobile); if(!u)return res.status(404).json({message:"Mobile number not found"});
+ const result=consumeOtp(db,mobile,"reset_password",otp); if(!result.ok){writeDB(db);return res.status(400).json({message:result.message});}
+ u.password=await bcrypt.hash(password,12); u.password_changed_at=new Date().toISOString(); writeDB(db);
+ res.json({message:"Password reset successfully"});
+});
+app.post("/api/user/change-password",auth,async(req,res)=>{
+ const current=String(req.body.current_password||""),next=String(req.body.new_password||"");
+ if(next.length<6)return res.status(400).json({message:"New password must be at least 6 characters"});
+ const db=readDB(),u=db.users.find(x=>x.id===req.user.id); if(!u)return res.status(404).json({message:"User not found"});
+ if(!(await bcrypt.compare(current,u.password)))return res.status(400).json({message:"Current password is incorrect"});
+ u.password=await bcrypt.hash(next,12);u.password_changed_at=new Date().toISOString();writeDB(db);res.json({message:"Password changed successfully"});
+});
+app.post("/api/user/request-mobile-change",auth,async(req,res)=>{
+ const mobile=normalizeMobile(req.body.mobile); if(!validMobile(mobile))return res.status(400).json({message:"Valid Bangladesh mobile number required"});
+ const db=readDB(),u=db.users.find(x=>x.id===req.user.id); if(!u)return res.status(404).json({message:"User not found"});
+ if(db.users.some(x=>x.mobile===mobile&&x.id!==u.id))return res.status(409).json({message:"Mobile already registered"});
+ const otp=issueOtp(db,mobile,"change_mobile");writeDB(db);const sent=await sendOtp(mobile,otp,"change_mobile");if(!sent)return res.status(503).json({message:"OTP delivery failed"});res.json({message:"OTP sent",expires_in:300});
+});
+app.post("/api/user/change-mobile",auth,(req,res)=>{
+ const mobile=normalizeMobile(req.body.mobile),db=readDB(),u=db.users.find(x=>x.id===req.user.id);if(!u)return res.status(404).json({message:"User not found"});
+ if(!validMobile(mobile))return res.status(400).json({message:"Valid Bangladesh mobile number required"});
+ if(db.users.some(x=>x.mobile===mobile&&x.id!==u.id))return res.status(409).json({message:"Mobile already registered"});
+ const result=consumeOtp(db,mobile,"change_mobile",req.body.otp);if(!result.ok){writeDB(db);return res.status(400).json({message:result.message});}
+ u.mobile=mobile;u.mobile_verified=true;u.mobile_changed_at=new Date().toISOString();writeDB(db);res.json({message:"Mobile number changed successfully"});
+});
+
 app.post("/api/auth/register",async(req,res)=>{
- const {name,mobile,password}=req.body;
+ const {name,password}=req.body;
+ const mobile=normalizeMobile(req.body.mobile);
  if(!name||!mobile||!password) return res.status(400).json({message:"Name, mobile and password required"});
  if(password.length<6) return res.status(400).json({message:"Password must be at least 6 characters"});
+ if(!validMobile(mobile)) return res.status(400).json({message:"Valid Bangladesh mobile number required"});
  const db=readDB();
  if(db.users.some(u=>u.mobile===mobile)) return res.status(409).json({message:"Mobile already registered"});
- const u={id:id(db.users),name,mobile,password:await bcrypt.hash(password,10),uid_code:makeUid(db),referral_code:"LI"+Math.random().toString(36).slice(2,8).toUpperCase(),blocked:false,created_at:new Date().toISOString()};
+ const u={id:id(db.users),name,mobile,password:await bcrypt.hash(password,10),uid_code:makeUid(db),referral_code:"LI"+Math.random().toString(36).slice(2,8).toUpperCase(),blocked:false,mobile_verified:false,created_at:new Date().toISOString()};
  db.users.push(u); db.balances.push({id:id(db.balances),user_id:u.id,gaming_balance:0,winning_balance:0}); writeDB(db);
  res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
 });
 app.post("/api/auth/login",async(req,res)=>{
- const db=readDB(),u=db.users.find(x=>x.mobile===req.body.mobile);
+ const db=readDB(),mobile=normalizeMobile(req.body.mobile),u=db.users.find(x=>x.mobile===mobile);
  if(!u||!(await bcrypt.compare(req.body.password||"",u.password))) return res.status(401).json({message:"Invalid mobile or password"});
  if(u.blocked) return res.status(403).json({message:"Account blocked"});
  res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
@@ -196,11 +294,18 @@ app.post("/api/deposit",auth,(req,res)=>{
  writeDB(db);res.json({message:"Deposit submitted for approval"});
 });
 app.post("/api/withdraw",auth,(req,res)=>{
- const db=readDB(),amount=Number(req.body.amount),b=getBalance(db,req.user.id);
- if(!amount||amount<=0)return res.status(400).json({message:"Invalid amount"});
- if(Number(b.winning_balance)<amount)return res.status(400).json({message:"Insufficient winning balance"});
- b.winning_balance-=amount;
- db.transactions.push({id:id(db.transactions),user_id:req.user.id,type:"withdraw",method:req.body.method,number:req.body.number,amount,status:"pending",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Withdraw request submitted"});
+ const db=readDB();ensureSecurity(db);const amount=Number(req.body.amount),b=getBalance(db,req.user.id),method=String(req.body.method||"").toLowerCase(),number=normalizeMobile(req.body.number);
+ if(!["bkash","nagad"].includes(method))return res.status(400).json({message:"Invalid withdrawal method"});
+ if(!validMobile(number))return res.status(400).json({message:"Valid Bangladesh mobile number required"});
+ const ws=db.withdraw_settings;
+ if(!Number.isFinite(amount)||amount<=0)return res.status(400).json({message:"Invalid amount"});
+ if(amount<ws.min_withdraw)return res.status(400).json({message:"Minimum withdraw is ৳"+ws.min_withdraw});
+ if(amount>ws.max_withdraw)return res.status(400).json({message:"Maximum withdraw is ৳"+ws.max_withdraw});
+ const fee=Number(ws.fee||0),total=amount+fee;
+ if(Number(b.winning_balance)<total)return res.status(400).json({message:"Insufficient winning balance including withdrawal fee"});
+ if(db.transactions.some(t=>t.type==="withdraw"&&t.user_id===req.user.id&&t.status==="pending"&&Number(t.amount)===amount&&t.number===number))return res.status(409).json({message:"A similar withdrawal is already pending"});
+ b.winning_balance-=total;
+ db.transactions.push({id:id(db.transactions),user_id:req.user.id,type:"withdraw",method,number,amount,fee,total_debit:total,status:"pending",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Withdraw request submitted",fee,total_debit:total});
 });
 app.get("/api/transactions",auth,(req,res)=>res.json({transactions:readDB().transactions.filter(x=>x.user_id===req.user.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))}));
 app.get("/api/user/statement",auth,(req,res)=>{
@@ -209,7 +314,8 @@ app.get("/api/user/statement",auth,(req,res)=>{
  const userTx=db.transactions.filter(t=>t.user_id===uid);
  userTx.forEach(t=>{
    if(t.type==="deposit") events.push({id:"t"+t.id,type:"deposit",title:"Deposit",amount:Number(t.amount||0),status:t.status,method:t.method,transaction_id:t.transaction_id,created_at:t.created_at});
-   else if(t.type==="withdraw") events.push({id:"t"+t.id,type:"withdraw",title:"Withdraw",amount:-Number(t.amount||0),status:t.status,method:t.method,created_at:t.created_at});
+   else if(t.type==="withdraw") events.push({id:"t"+t.id,type:"withdraw",title:"Withdraw",amount:-Number(t.total_debit??t.amount??0),status:t.status,method:t.method,transaction_id:t.transaction_id,fee:Number(t.fee||0),created_at:t.created_at});
+   else if(t.type==="match_refund") { const m=db.matches.find(x=>x.id===t.match_id); events.push({id:"t"+t.id,type:"refund",title:"Match Refund",amount:Number(t.amount||0),status:t.status,match_id:t.match_id,match_title:m?.title||"Ludo Match",created_at:t.created_at}); }
    else if(t.type==="match_entry") { const m=db.matches.find(x=>x.id===t.match_id); events.push({id:"t"+t.id,type:"match_join",title:"Match Joined",amount:-Number(t.amount||0),status:t.status,match_id:t.match_id,match_title:m?.title||"Ludo Match",created_at:t.created_at}); }
    else if(t.type==="match_profit") { const m=db.matches.find(x=>x.id===t.match_id); events.push({id:"t"+t.id,type:"profit",title:"Match Profit",amount:Number(t.amount||0),status:t.status,match_id:t.match_id,match_title:m?.title||"Ludo Match",created_at:t.created_at}); }
  });
@@ -236,10 +342,19 @@ app.post("/api/support",auth,(req,res)=>{
 });
 
 /* Admin */
-app.post("/api/admin/login",(req,res)=>{
- if(req.body.mobile!==ADMIN_MOBILE||req.body.password!==ADMIN_PASSWORD)return res.status(401).json({message:"Invalid admin credentials"});
- res.json({token:token({id:0,role:"admin"})});
+app.post("/api/admin/login",async(req,res)=>{
+ const db=readDB();ensureSecurity(db);const mobile=normalizeMobile(req.body.mobile),password=String(req.body.password||"");
+ if(mobile!==db.admin_settings.mobile||!(await bcrypt.compare(password,db.admin_settings.password_hash)))return res.status(401).json({message:"Invalid admin credentials"});
+ writeDB(db);res.json({token:token({id:0,role:"admin"})});
 });
+app.post("/api/admin/change-password",admin,async(req,res)=>{
+ const db=readDB();ensureSecurity(db);const current=String(req.body.current_password||""),next=String(req.body.new_password||"");
+ if(next.length<8)return res.status(400).json({message:"Admin password must be at least 8 characters"});
+ if(!(await bcrypt.compare(current,db.admin_settings.password_hash)))return res.status(400).json({message:"Current admin password is incorrect"});
+ db.admin_settings.password_hash=await bcrypt.hash(next,12);db.admin_settings.password_changed_at=new Date().toISOString();writeDB(db);res.json({message:"Admin password changed successfully"});
+});
+app.get("/api/admin/security",admin,(req,res)=>{const db=readDB();ensureSecurity(db);res.json({mobile:db.admin_settings.mobile,password_changed_at:db.admin_settings.password_changed_at||null,withdraw_settings:db.withdraw_settings});});
+app.put("/api/admin/withdraw-settings",admin,(req,res)=>{const db=readDB();ensureSecurity(db);const b=req.body||{},w=db.withdraw_settings; if(b.min_withdraw!==undefined)w.min_withdraw=Math.max(1,Number(b.min_withdraw)||1);if(b.max_withdraw!==undefined)w.max_withdraw=Math.max(w.min_withdraw,Number(b.max_withdraw)||w.min_withdraw);if(b.fee!==undefined)w.fee=Math.max(0,Number(b.fee)||0);writeDB(db);res.json({message:"Withdraw settings saved",withdraw_settings:w});});
 app.get("/api/admin/stats",admin,(req,res)=>{
  const db=readDB(); res.json({
   users:db.users.length,
@@ -271,7 +386,7 @@ app.post("/api/admin/withdraws/:id/:action",admin,(req,res)=>{
  const db=readDB(),t=db.transactions.find(x=>x.id==req.params.id&&x.type==="withdraw");if(!t)return res.status(404).json({message:"Withdraw not found"});
  if(t.status!=="pending")return res.status(400).json({message:"Already processed"});
  if(req.params.action==="approve")t.status="approved";
- else if(req.params.action==="reject"){t.status="rejected";getBalance(db,t.user_id).winning_balance+=Number(t.amount)}
+ else if(req.params.action==="reject"){t.status="rejected";getBalance(db,t.user_id).winning_balance+=Number(t.total_debit??t.amount)}
  else return res.status(400).json({message:"Invalid action"});
  writeDB(db);res.json({message:"Withdraw "+req.params.action});
 });
@@ -296,6 +411,22 @@ app.put("/api/admin/matches/:id",admin,(req,res)=>{
  writeDB(db);res.json({message:"Match updated"});
 });
 app.delete("/api/admin/matches/:id",admin,(req,res)=>{const db=readDB(),i=db.matches.findIndex(x=>x.id==req.params.id);if(i<0)return res.status(404).json({message:"Match not found"});db.matches.splice(i,1);db.match_players=db.match_players.filter(x=>x.match_id!=req.params.id);writeDB(db);res.json({message:"Match deleted"})});
+app.post("/api/admin/matches/:id/result",admin,(req,res)=>{
+ const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:"Match not found"});
+ const winnerId=Number(req.body.winner_user_id);if(!winnerId)return res.status(400).json({message:"Winner user required"});
+ const joined=db.match_players.filter(p=>p.match_id===m.id);if(!joined.some(p=>p.user_id===winnerId))return res.status(400).json({message:"Winner must be a joined player"});
+ if(m.result_locked)return res.status(400).json({message:"Match result already locked"});
+ m.status="completed";m.winner_user_id=winnerId;m.result_locked=true;m.completed_at=new Date().toISOString();
+ const prize=Number(m.prize||0),existing=db.transactions.some(t=>t.type==="match_profit"&&t.match_id===m.id&&t.user_id===winnerId);
+ if(!existing&&prize>0){getBalance(db,winnerId).winning_balance+=prize;db.transactions.push({id:id(db.transactions),user_id:winnerId,type:"match_profit",amount:prize,status:"approved",match_id:m.id,created_at:new Date().toISOString()});}
+ writeDB(db);res.json({message:"Match result saved",winner_user_id:winnerId});
+});
+app.post("/api/admin/matches/:id/cancel",admin,(req,res)=>{
+ const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:"Match not found"});if(m.status==="completed"||m.status==="cancelled")return res.status(400).json({message:"Match already closed"});
+ m.status="cancelled";m.cancelled_at=new Date().toISOString();const players=db.match_players.filter(p=>p.match_id===m.id);
+ players.forEach(p=>{const refunded=db.transactions.some(t=>t.type==="match_refund"&&t.match_id===m.id&&t.user_id===p.user_id);if(!refunded){const fee=Number(m.entry_fee||0);getBalance(db,p.user_id).gaming_balance+=fee;db.transactions.push({id:id(db.transactions),user_id:p.user_id,type:"match_refund",amount:fee,status:"approved",match_id:m.id,created_at:new Date().toISOString()});}});
+ writeDB(db);res.json({message:"Match cancelled and players refunded"});
+});
 app.get("/api/admin/winnings",admin,(req,res)=>{const db=readDB();res.json({items:db.winnings.map(w=>({...w,user:db.users.find(u=>u.id===w.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/winnings/:id/:action",admin,(req,res)=>{
  const db=readDB(),w=db.winnings.find(x=>x.id==req.params.id);if(!w)return res.status(404).json({message:"Winning not found"});
