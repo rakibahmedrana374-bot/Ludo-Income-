@@ -84,13 +84,13 @@ function maintenanceEnabled(){ return !!readDB().maintenance?.enabled; }
 function maintenancePage(){
  const m=readDB().maintenance||{};
  const safe=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
- return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#16a34a"><title>Ludo Income — Update</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f0fdf4,#dcfce7);font-family:Arial,"Noto Sans Bengali",sans-serif;color:#111827}.box{width:min(92%,430px);background:#fff;border-radius:24px;padding:34px 24px;text-align:center;box-shadow:0 12px 40px #0002}.icon{font-size:58px}.title{font-size:28px;margin:12px 0}.msg{font-size:17px;line-height:1.7;color:#4b5563}.foot{margin-top:22px;font-weight:700;color:#166534}.btn{margin-top:22px;border:0;border-radius:12px;padding:13px 20px;background:#16a34a;color:#fff;font-weight:700;font-size:16px}</style></head><body><main class="box"><div class="icon">🔧</div><h1 class="title">${safe(m.title)}</h1><div class="msg">${safe(m.message).replace(/\n/g,"<br>")}</div><div class="foot">${safe(m.footer)}</div><button class="btn" onclick="location.reload()">${safe(m.button_text)}</button></main></body></html>`;
+ return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#16a34a"><title>Ludo Income — Update</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f0fdf4,#dcfce7);font-family:Arial,"Noto Sans Bengali",sans-serif;color:#111827}.box{width:min(92%,430px);background:#fff;border-radius:24px;padding:34px 24px;text-align:center;box-shadow:0 12px 40px #0002}.icon{font-size:58px}.title{font-size:28px;margin:12px 0}.msg{font-size:17px;line-height:1.7;color:#4b5563}.foot{margin-top:22px;font-weight:700;color:#166534}.btn{margin-top:22px;border:0;border-radius:12px;padding:13px 20px;background:#16a34a;color:#fff;font-weight:700;font-size:16px}</style></head><body><main class="box"><img src="/public/images/ludo-income-main-logo.jpg" alt="Ludo Income Logo" style="width:120px;height:120px;object-fit:contain;border-radius:22px;background:#fff;padding:4px;box-shadow:0 4px 18px #0002"><div class="icon" style="font-size:34px;margin-top:12px">🔧</div><h1 class="title">${safe(m.title)}</h1><div class="msg">${safe(m.message).replace(/\n/g,"<br>")}</div><div class="foot">${safe(m.footer)}</div><button class="btn" onclick="location.reload()">${safe(m.button_text)}</button></main></body></html>`;
 }
 app.get("/api/maintenance",(req,res)=>res.json({maintenance:readDB().maintenance||{enabled:false}}));
 // Maintenance blocks normal users/site while keeping Admin Panel and Admin APIs accessible.
 app.use((req,res,next)=>{
  const p=req.path||"";
- if(p==="/api/health" || p==="/api/maintenance" || p==="/admin" || p.startsWith("/api/admin") || p.startsWith("/uploads/") || p.startsWith("/payment-logos/")) return next();
+ if(p==="/api/health" || p==="/api/maintenance" || p==="/admin" || p.startsWith("/api/admin") || p.startsWith("/uploads/")) return next();
  if(!maintenanceEnabled()) return next();
  if(p.startsWith("/api/")) return res.status(503).json({success:false,maintenance:true,message:(readDB().maintenance?.message)||"Update চলছে"});
  return res.status(503).type("html").send(maintenancePage());
@@ -343,7 +343,6 @@ app.post("/api/admin/announcements/:id/toggle",admin,(req,res)=>{const db=readDB
 app.delete("/api/admin/announcements/:id",admin,(req,res)=>{const db=readDB();db.announcements=db.announcements.filter(x=>x.id!=req.params.id);writeDB(db);res.json({message:"Deleted"})});
 
 app.use("/uploads",express.static(UPLOAD_DIR));
-app.use("/payment-logos",express.static(path.join(ROOT,"payment-logos")));
 app.get("/admin",(req,res)=>{
   const publicAdmin=path.join(ROOT,"public","admin.html");
   const rootAdmin=path.join(ROOT,"admin.html");
