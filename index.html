@@ -1099,6 +1099,9 @@ async function loadSiteConfig(){
   const q=document.getElementById('quickButtonsCard'),dc=document.getElementById('dynamicButtonsCard'),ac=document.getElementById('announcementCard'),mc=document.getElementById('matchesCard');
   const brand=document.getElementById('siteBrandName'); if(brand&&h.hero_title)brand.textContent=h.hero_title; document.title=h.hero_title||document.title;
   if(q)q.classList.toggle('hidden',h.show_quick_buttons===false);
+  const qb=(h.quick_buttons||[]).filter(x=>x.enabled!==false).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  if(q){const acts=qb.map(x=>`<button class="action" data-feature="${escapeHtml(x.id||'')}" data-action="${encodeURIComponent(String(x.action||''))}" onclick="runSiteAction(decodeURIComponent(this.dataset.action))">${escapeHtml(x.icon||'🔘')} ${escapeHtml(x.label||'Button')}</button>`).join(''); if(acts) q.innerHTML='<div class="section-title">Quick Actions</div><div class="action-grid">'+acts+'</div>';}
+
   if(ac)ac.classList.toggle('hidden',h.show_announcement===false||f.announcement===false);
   if(mc)mc.classList.toggle('hidden',h.show_matches===false||f.matches===false);
   document.querySelectorAll('[data-feature]').forEach(e=>e.classList.toggle('hidden',f[e.dataset.feature]===false));

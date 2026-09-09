@@ -24,12 +24,12 @@
 <div id="content" class="content"></div></main></div>
 <script>
 const API="/api";let T=localStorage.getItem("li_admin");
-const NAV=[['overview','🏠','Dashboard'],['reports','📊','Reports'],['transactions','🧾','Transactions'],['users','👥','Users'],['deposits','➕','Deposits'],['withdraws','💸','Withdraws'],['matches','🎮','Matches'],['winnings','🏆','My Matches'],['support','🎧','Support'],['ann','🔔','Announcement'],['security','🔐','Security'],['payments','💳','Deposit Settings'],['siteConfig','🧩','Site Builder'],['profileSettings','⚙️','Profile Settings'],['matchSettings','🎯','Match Settings'],['maintenance','🔧','Maintenance'],['audit','🛡️','Audit Logs'],['logout','🚪','Logout']];
+const NAV=[['overview','🏠','Dashboard'],['control','🎛️','Control Center'],['reports','📊','Reports'],['transactions','🧾','Transactions'],['users','👥','Users'],['deposits','➕','Deposits'],['withdraws','💸','Withdraws'],['matches','🎮','Matches'],['winnings','🏆','My Matches'],['support','🎧','Support'],['ann','🔔','Announcement'],['security','🔐','Security'],['payments','💳','Deposit Settings'],['siteConfig','🧩','Site Builder'],['profileSettings','⚙️','Profile Settings'],['matchSettings','🎯','Match Settings'],['maintenance','🔧','Maintenance'],['audit','🛡️','Audit Logs'],['logout','🚪','Logout']];
 function buildNav(){nav.innerHTML=NAV.map(n=>`<button id="n-${n[0]}" onclick="tab('${n[0]}')"><span>${n[1]}</span>${n[2]}</button>`).join('')}
 async function req(p,o={}){o.headers={...(o.headers||{}),Authorization:"Bearer "+T,"Content-Type":"application/json"};let r=await fetch(API+p,o),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||"Request failed");return d}
 function money(n){return Number(n||0).toLocaleString("en-BD")}
 async function login(){try{let d=await fetch(API+"/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mobile:am.value,password:ap.value})}).then(r=>r.json());if(!d.token)throw Error(d.message||"Login failed");T=d.token;localStorage.setItem("li_admin",T);show();}catch(e){lm.textContent=e.message}}
-function show(){document.getElementById("login").classList.add("hide");document.getElementById("main").classList.remove("hide");buildNav();tab("overview")}
+function show(){document.getElementById("login").classList.add("hide");document.getElementById("main").classList.remove("hide");buildNav();tab("control")}
 function logout(){localStorage.removeItem("li_admin");location.reload()}
 let currentTab="overview";
 function activeNav(x){NAV.forEach(n=>document.getElementById('n-'+n[0])?.classList.toggle('active',n[0]===x))}
@@ -68,6 +68,21 @@ async function saveDepositGlobals(){try{let d=await req('/admin/payment-settings
 
 let siteConfigData=null, draggedSiteButtonId=null, draggedSiteSectionId=null;
 const FEATURE_LABELS={registration:'Registration',login:'Login',deposit:'Deposit',withdraw:'Withdraw',matches:'Matches',referral:'Referral',support:'Support',winning:'Winning / Screenshot',announcement:'Announcement',download_app:'Download App'};
+async function loadControlCenter(){
+ const c=document.getElementById('content');
+ c.innerHTML=`<div class="panel"><div class="section-head"><div><h2>🎛️ Control Center</h2><div class="muted">এই প্যানেল থেকেই Main Page-এর গুরুত্বপূর্ণ জিনিস ON/OFF, নাম/আইকন/অ্যাকশন পরিবর্তন এবং নতুন section/button তৈরি করতে পারবেন। Save করলে server database-এ যাবে।</div></div><button class="btn green" onclick="loadControlCenter()">↻ Refresh</button></div></div><div id="controlBody"></div>`;
+ try{const d=await req('/admin/site-config');siteConfigData=d.site_config||{};renderControlCenter()}catch(e){document.getElementById('controlBody').innerHTML='<div class="panel">'+esc(e.message)+'</div>'}
+}
+function renderControlCenter(){
+ const s=siteConfigData||{},f=s.features||{},h=s.home||{};
+ const features=Object.keys(FEATURE_LABELS).map(k=>`<div class="item" style="display:flex;justify-content:space-between;align-items:center"><div><b>${FEATURE_LABELS[k]}</b><div class="muted">${k}</div></div><label class="switch"><input type="checkbox" ${f[k]!==false?'checked':''} onchange="setControlFeature('${k}',this.checked)"><span class="slider"></span></label></div>`).join('');
+ const qb=(h.quick_buttons||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+ document.getElementById('controlBody').innerHTML=`<div class="panel"><div class="section-head"><div><h2>⚡ Main Page Quick Buttons</h2><div class="muted">Deposit/Withdraw/Tournament/My Match-এর button text, icon, action এবং ON/OFF এখান থেকে বদলান।</div></div></div>${qb.map(x=>`<div class="item"><div class="row"><div><label>Button Text</label><input class="input" id="qbl_${esc(x.id)}" value="${esc(x.label)}"><label>Icon</label><input class="input" id="qbi_${esc(x.id)}" value="${esc(x.icon)}"></div><div><label>Action</label><input class="input" id="qba_${esc(x.id)}" value="${esc(x.action)}" placeholder="page:deposit / page:matches / page:mymatches / url:https://..."><label class="checkline"><input id="qbe_${esc(x.id)}" type="checkbox" ${x.enabled!==false?'checked':''}> Enabled</label></div></div><button class="btn green" onclick="saveQuickButton('${esc(x.id)}')">💾 Save Button</button></div>`).join('')}<div class="muted" style="margin-top:8px">Order: ${qb.map((x,i)=>`${i+1}. ${esc(x.label)}`).join(' → ')||'No buttons'}</div></div>
+ <div class="panel"><div class="section-head"><div><h2>🎚️ Master Feature Switches</h2><div class="muted">Feature OFF করলে Main Page থেকে hide হবে এবং supported backend route-ও block থাকবে।</div></div><button class="btn blue" onclick="tab('siteConfig')">Open Full Site Builder →</button></div><div class="quick">${features}</div></div>`;
+}
+async function setControlFeature(k,on){try{const d=await req('/admin/site-config',{method:'PUT',body:JSON.stringify({features:{[k]:on}})});siteConfigData=d.site_config;renderControlCenter()}catch(e){alert(e.message)}}
+async function saveQuickButton(id){try{const d=await req('/admin/quick-buttons/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify({label:document.getElementById('qbl_'+id).value,icon:document.getElementById('qbi_'+id).value,action:document.getElementById('qba_'+id).value,enabled:document.getElementById('qbe_'+id).checked})});siteConfigData=d.site_config;renderControlCenter();alert('Main Page button saved')}catch(e){alert(e.message)}}
+
 async function loadSiteBuilder(){
   const c=document.getElementById('content');
   c.innerHTML=`<div class="panel"><div class="section-head"><div><h2>🧩 Main Page Builder</h2><div class="muted">Control what users see on the main page. Changes are saved to the server and reflected after refresh.</div></div><button class="btn green" onclick="loadSiteBuilder()">↻ Refresh</button></div><div id="siteStatus" class="notice">Loading...</div></div><div id="siteBuilderBody"></div>`;
