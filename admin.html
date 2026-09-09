@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07182f"><title>Ludo Income Admin Panel — Green Right Sidebar</title>
+<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07182f"><title>Ludo Income Admin Panel — Green Right Sidebar Dashboard</title>
 <style>
 :root{--navy:#07182f;--navy2:#0d2343;--green:#18b56b;--green2:#0c9a59;--bg:#f4f7fb;--text:#12233f;--muted:#6b7a90;--line:#e3e9f2;--white:#fff;--danger:#ef4444;--blue:#2f80ed;--purple:#7357e8;--orange:#f59e0b;--pink:#ec4899;--shadow:0 8px 30px rgba(24,42,70,.08)}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text)}button,input,textarea{font:inherit}.hide{display:none!important}
@@ -61,29 +61,42 @@ html,body{background:linear-gradient(135deg,#f4f8f6 0%,#edf5f1 100%);color:var(-
   .brand strong{font-size:16px!important}.brand img{width:43px!important;height:43px!important}.nav button{padding:10px 9px!important;font-size:12px!important}.nav button span{width:24px!important;min-width:24px!important;height:24px!important;font-size:15px!important}.side-card{font-size:11px!important}
 }
 
-/* ===== FINAL COMPACT DASHBOARD SHELL — RIGHT SIDEBAR / NO HIDE ===== */
-html,body{min-height:100%;height:100%;overflow:hidden}
-.app{position:relative;width:min(1450px,calc(100vw - 32px));height:min(900px,calc(100vh - 32px));min-height:620px;margin:16px auto;background:#f3f7f5;border-radius:24px;overflow:hidden;box-shadow:0 22px 70px rgba(8,87,49,.16);border:1px solid #dfeae4}
-.sidebar{position:absolute!important;left:auto!important;right:0!important;top:0!important;bottom:0!important;width:278px!important;height:100%!important;border-radius:0!important;overflow-y:auto!important}
-.main{position:absolute!important;left:0!important;right:278px!important;top:0!important;bottom:0!important;width:auto!important;height:100%!important;margin:0!important;padding:0 24px 24px!important;overflow-y:auto!important;overflow-x:hidden!important}
-.topbar{position:sticky!important;top:0!important;z-index:50!important}
-.content{min-height:0!important}
-@media(max-width:1100px){.app{width:calc(100vw - 20px);height:calc(100vh - 20px);margin:10px auto}.sidebar{width:245px!important}.main{right:245px!important;padding-left:18px!important;padding-right:18px!important}.topbar{margin-left:-18px!important;margin-right:-18px!important;padding-left:18px!important;padding-right:18px!important}.stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+/* ===== FINAL REFERENCE LAYOUT: compact green right sidebar + auto content workspace ===== */
+html,body{overflow-x:hidden}
+.app{display:flex;min-height:100vh;align-items:stretch}
+.sidebar{position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:auto!important;width:260px!important;height:100vh!important;padding:18px 14px!important;border-radius:20px 0 0 20px!important;overflow-y:auto!important;transform:none!important}
+.main{margin:0 260px 0 0!important;width:calc(100% - 260px)!important;min-width:0!important;padding:0 22px 30px!important}
+.content{width:100%!important;min-width:0!important}
+.topbar{margin:0 -22px 18px!important;padding:0 22px!important;height:70px!important}
+.mobile-menu{display:none!important}
+.sidebar-backdrop{display:none!important}
+.side-close{display:none!important}
+.nav button{min-height:44px!important}
+.nav button span{flex:0 0 27px!important}
+.panel,.hero,.stats{max-width:none!important}
+@media(max-width:900px) and (min-width:701px){.sidebar{width:235px!important}.main{margin-right:235px!important;width:calc(100% - 235px)!important;padding-left:16px!important;padding-right:16px!important}.topbar{margin-left:-16px!important;margin-right:-16px!important;padding-left:16px!important;padding-right:16px!important}.stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:700px){
-  .app{width:100vw;height:100vh;min-height:0;margin:0;border-radius:0;border:0}
-  .sidebar{width:195px!important;padding:14px 9px!important;border-radius:0!important}
-  .main{right:195px!important;padding:0 9px 16px!important;min-width:0!important}
-  .topbar{margin:0 -9px 12px!important;padding:0 9px!important;height:58px!important}
-  .top-right{gap:5px!important}.top-right .online,.admin-chip{display:none!important}
-  .hero{padding:13px!important;border-radius:13px!important}.hero h1{font-size:15px!important}.hero p{font-size:10px!important}.hero-badge{font-size:9px!important;padding:6px 8px!important}
-  .stats{grid-template-columns:1fr 1fr!important;gap:6px!important}.stat{padding:9px!important;border-radius:12px!important}.stat .icon{width:30px;height:30px;font-size:15px;margin-bottom:5px}.stat span{font-size:9px}.stat b{font-size:15px!important}
-  .panel{padding:10px!important;border-radius:12px!important;margin-bottom:9px!important}.panel h2{font-size:15px!important}.panel>p{font-size:10px!important}
-  .nav button{padding:9px 7px!important;font-size:11px!important;gap:7px!important}.nav button span{width:22px!important;min-width:22px!important;height:22px!important;font-size:13px!important}.brand{padding:3px 5px 13px!important;margin-bottom:11px!important}.brand img{width:38px!important;height:38px!important}.brand strong{font-size:14px!important}.side-card{font-size:10px!important;padding:10px!important}
+  body{overflow-x:hidden}
+  .app{display:block!important}
+  .main{margin:0!important;width:100%!important;min-width:0!important;padding:0 12px 24px!important}
+  .topbar{margin:0 -12px 14px!important;padding:0 12px!important;height:62px!important}
+  .mobile-menu{display:inline-flex!important}
+  .sidebar{width:min(280px,82vw)!important;height:100vh!important;right:0!important;left:auto!important;top:0!important;bottom:0!important;padding:18px 12px!important;border-radius:18px 0 0 18px!important;transform:translateX(105%)!important;transition:transform .22s ease!important;z-index:1200!important}
+  .sidebar.open{transform:translateX(0)!important}
+  .sidebar-backdrop{position:fixed!important;inset:0!important;display:block!important;background:rgba(0,0,0,.42)!important;opacity:0!important;pointer-events:none!important;z-index:1100!important;transition:opacity .22s ease!important}
+  .sidebar-backdrop.open{opacity:1!important;pointer-events:auto!important}
+  .side-close{display:block!important;margin-left:auto!important;flex:0 0 34px!important;width:34px!important;height:34px!important;border:0!important;border-radius:10px!important;background:rgba(255,255,255,.14)!important;color:#fff!important;font-size:25px!important;line-height:1!important}
+  .brand{display:flex!important}
+  .nav{display:grid!important;height:auto!important;overflow:visible!important}
+  .nav button{width:100%!important;white-space:normal!important}
+  .stats{grid-template-columns:1fr 1fr!important;gap:9px!important}
+  .hero{padding:17px!important}
+  .payment-card{grid-template-columns:88px 1fr!important}
 }
 </style></head><body>
 <div id="login" class="login"><div class="login-card"><img class="login-logo" src="/ludo-income-main-logo.jpg?v=2"><h1>Ludo Income</h1><p>🔐 Secure Admin Panel Login</p><input id="am" class="input" placeholder="Admin Mobile"><input id="ap" class="input" type="password" placeholder="Admin Password"><button class="btn green" style="width:100%;padding:13px" onclick="login()">Login to Admin Panel</button><p id="lm"></p></div></div>
 <div id="main" class="app hide">
-<aside class="sidebar" id="adminSidebar"><div class="brand"><img src="/ludo-income-main-logo.jpg?v=2"><div><strong>Ludo <span style="color:#ffc928">Income</span></strong><small>Admin Panel</small></div></div><div class="side-label">ADMIN MENU</div><nav class="nav" id="nav"></nav><div class="side-card"><div style="font-size:27px">👑</div><b>Ludo Income</b><p>Play · Win · Earn<br>Make your dream come true</p></div></aside>
+<aside class="sidebar" id="adminSidebar"><div class="brand"><img src="/ludo-income-main-logo.jpg?v=2"><div><strong>Ludo <span style="color:#ffc928">Income</span></strong><small>Admin Panel</small></div><button class="side-close" aria-label="Close sidebar" onclick="toggleSidebar(false)">×</button></div><div class="side-label">ADMIN MENU</div><nav class="nav" id="nav"></nav><div class="side-card"><div style="font-size:27px">👑</div><b>Ludo Income</b><p>Play · Win · Earn<br>Make your dream come true</p></div></aside><div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
 <main class="main"><div class="topbar"><div><button class="btn gray mobile-menu" onclick="toggleSidebar()">☰ <span>Menu</span></button></div><div class="top-right"><span class="online">● System Online</span><span>🔔</span><div class="admin-chip"><span class="admin-avatar">👨‍💼</span><span>Admin<br><small style="color:var(--muted)">Super Admin</small></span>⌄</div></div></div>
 <div class="hero"><div><h1>🎮 Ludo Income Admin Panel</h1><p>Manage users, deposits, withdrawals, matches and system settings.</p></div><div class="hero-badge">● Online</div></div>
 <div class="stats"><div class="stat"><div class="icon">👥</div><span>Total Users</span><b id="sUsers">0</b></div><div class="stat"><div class="icon">💳</div><span>Gaming Balance</span><b>৳<span id="sGaming">0</span></b></div><div class="stat"><div class="icon">🏆</div><span>Winning Balance</span><b>৳<span id="sWinning">0</span></b></div><div class="stat"><div class="icon">⏳</div><span>Pending Requests</span><b id="sPending">0</b></div></div>
@@ -95,12 +108,12 @@ function buildNav(){nav.innerHTML=NAV.map(n=>`<button id="n-${n[0]}" onclick="ta
 async function req(p,o={}){o.headers={...(o.headers||{}),Authorization:"Bearer "+T,"Content-Type":"application/json"};let r=await fetch(API+p,o),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||"Request failed");return d}
 function money(n){return Number(n||0).toLocaleString("en-BD")}
 async function login(){try{let d=await fetch(API+"/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mobile:am.value,password:ap.value})}).then(r=>r.json());if(!d.token)throw Error(d.message||"Login failed");T=d.token;localStorage.setItem("li_admin",T);show();}catch(e){lm.textContent=e.message}}
-function show(){document.getElementById("login").classList.add("hide");document.getElementById("main").classList.remove("hide");buildNav();tab("overview")}
-function toggleSidebar(){return false}
+function show(){document.getElementById("login").classList.add("hide");document.getElementById("main").classList.remove("hide");buildNav();tab("control")}
+function toggleSidebar(force){const s=document.getElementById('adminSidebar'),b=document.getElementById('sidebarBackdrop');const open=typeof force==='boolean'?force:!s.classList.contains('open');s.classList.toggle('open',open);b?.classList.toggle('open',open);document.body.classList.toggle('sidebar-open',open)}
 function logout(){localStorage.removeItem("li_admin");location.reload()}
 let currentTab="overview";
 function activeNav(x){NAV.forEach(n=>document.getElementById('n-'+n[0])?.classList.toggle('active',n[0]===x))}
-async function tab(x){currentTab=x;activeNav(x);let c=document.getElementById("content");try{
+async function tab(x){currentTab=x;activeNav(x);if(window.innerWidth<=700)toggleSidebar(false);let c=document.getElementById("content");try{
 if(x==="logout"){logout();return}
 if(x==="reports"){c.innerHTML=`<div class=panel><div class=section-head><div><h2>📊 Reports & Analytics</h2><div class=muted>Date-filtered business, match and payment performance.</div></div></div><div class=filter-row><div><label>From</label><input id=repfrom class=input type=date></div><div><label>To</label><input id=repto class=input type=date></div><div><button class="btn green" onclick="loadReports()">🔎 Apply Filter</button></div></div><div id=reportbody style="margin-top:14px"></div></div>`;window.loadReports=async()=>{let d=await req('/admin/stats?from='+encodeURIComponent(repfrom.value)+'&to='+encodeURIComponent(repto.value));let max=Math.max(1,...d.daily.map(a=>a.deposits));reportbody.innerHTML='<div class=kpi-grid><div class=kpi>Approved Deposits<b>৳'+money(d.approved_deposits)+'</b></div><div class=kpi>Approved Withdraws<b>৳'+money(d.approved_withdraws)+'</b></div><div class=kpi>Withdraw Fees<b>৳'+money(d.withdraw_fees)+'</b></div><div class=kpi>Net Match Revenue<b>৳'+money(d.net_match_revenue)+'</b></div><div class=kpi>Match Entries<b>৳'+money(d.match_entries)+'</b></div><div class=kpi>Match Prizes<b>৳'+money(d.match_prizes)+'</b></div><div class=kpi>Match Refunds<b>৳'+money(d.match_refunds)+'</b></div><div class=kpi>Completed Matches<b>'+d.matches_completed+'</b></div></div><div class=panel><h2>📈 Last 7 Days</h2><div class=chart>'+d.daily.map(z=>'<div class=bar><span>'+z.date.slice(5)+'</span><div class=bartrack><div class=barfill style="width:'+Math.min(100,Math.round((z.deposits/max)*100))+'%"></div></div><b>৳'+money(z.deposits)+'</b></div>').join('')+'</div></div><div class=panel><h2>⬇️ Export Data</h2><p class=muted>Download CSV reports for accounting and review.</p><div class=actions><button class="btn blue" onclick="exportCSV(&quot;users&quot;)">Users CSV</button><button class="btn blue" onclick="exportCSV(&quot;matches&quot;)">Matches CSV</button><button class="btn blue" onclick="exportCSV(&quot;transactions&quot;)">Transactions CSV</button></div></div>'};loadReports()}
 if(x==="transactions"){c.innerHTML=`<div class=panel><div class=section-head><div><h2>🧾 Transaction Search</h2><div class=muted>Search and filter money transactions.</div></div></div><div class=filter-row><div class=wide><label>Search</label><input id=txq class=input placeholder="Name / mobile / Transaction ID"></div><div><label>Type</label><select id=txtype class=input><option value=all>All</option><option value=deposit>Deposit</option><option value=withdraw>Withdraw</option><option value=match_entry>Match Entry</option><option value=match_profit>Match Profit</option><option value=match_refund>Match Refund</option><option value=admin_adjustment>Admin Adjustment</option></select></div><div><label>Status</label><select id=txstatus class=input><option value=all>All</option><option value=pending>Pending</option><option value=approved>Approved</option><option value=rejected>Rejected</option></select></div><div><label>From</label><input id=txfrom class=input type=date></div><div><label>To</label><input id=txto class=input type=date></div></div><button class="btn green" onclick="loadTx()">🔎 Search</button><div id=txlist style="margin-top:12px"></div></div>`;window.loadTx=async()=>{let p=new URLSearchParams({search:txq.value,type:txtype.value,status:txstatus.value,from:txfrom.value,to:txto.value});let d=await req('/admin/transactions?'+p);txlist.innerHTML=d.items.length?d.items.map(t=>'<div class=item><b>#'+t.id+' '+esc(t.type)+'</b> — ৳'+money(Math.abs(Number(t.amount||t.total_debit||0)))+'<br>'+esc(t.user_name)+' · '+esc(t.user_mobile)+'<br>Status: <b>'+esc(t.status)+'</b> · '+new Date(t.created_at).toLocaleString()+(t.transaction_id?'<br>Txn ID: '+esc(t.transaction_id):'')+'</div>').join(''):'<div class=empty>No transactions found.</div>'};loadTx()}
