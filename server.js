@@ -121,7 +121,7 @@ function getBalance(db,uid){
 }
 const upload=multer({storage:multer.diskStorage({
  destination:(req,file,cb)=>cb(null,UPLOAD_DIR),
- filename:(req,file,cb)=>cb(null,Date.now()+"-"+Math.random().toString(36).slice(2)+path.extname(file.originalname))
+ filename:(req,file,cb)=>cb(null,Date.now()+"-"+Math.random().toString(36).slice(2)+path.extname(file.originalname).toLowerCase())
 }),limits:{fileSize:5*1024*1024}});
 
 app.get("/api/health",(req,res)=>res.json({ok:true,service:"Ludo Income"}));
@@ -478,7 +478,17 @@ app.post("/api/admin/winnings/:id/:action",admin,(req,res)=>{
 app.get("/api/admin/support",admin,(req,res)=>{const db=readDB();res.json({items:db.support_messages.map(s=>({...s,user:db.users.find(u=>u.id===s.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/support/:id/reply",admin,(req,res)=>{const db=readDB(),s=db.support_messages.find(x=>x.id==req.params.id);if(!s)return res.status(404).json({message:"Message not found"});s.reply=req.body.reply||"";s.status="replied";writeDB(db);res.json({message:"Reply saved"})});
 app.get("/api/admin/payment-settings",admin,(req,res)=>res.json({payment_settings:readDB().payment_settings}));
-app.post("/api/admin/payment-methods/upload",admin,upload.single("logo"),(req,res)=>{if(!req.file)return res.status(400).json({message:"Logo file required"});if(!/^image\/(png|jpe?g|webp)$/.test(req.file.mimetype))return res.status(400).json({message:"Only PNG, JPG or WEBP logos are allowed"});res.json({logo_url:"/uploads/"+req.file.filename});});
+app.post("/api/admin/payment-methods/upload",admin,upload.single("logo"),(req,res)=>{
+  if(!req.file)return res.status(400).json({message:"Logo file required"});
+  if(!/^image\/(png|jpe?g|webp)$/.test(req.file.mimetype)){try{fs.unlinkSync(req.file.path)}catch{};return res.status(400).json({message:"Only PNG, JPG or WEBP logos are allowed"});}
+  if(req.file.size>1400*1024){try{fs.unlinkSync(req.file.path)}catch{};return res.status(400).json({message:"Logo must be 1.4MB or smaller"});}
+  try{
+    const bytes=fs.readFileSync(req.file.path);
+    const logo_url=`data:${req.file.mimetype};base64,${bytes.toString("base64")}`;
+    try{fs.unlinkSync(req.file.path)}catch{};
+    res.json({logo_url});
+  }catch(e){try{fs.unlinkSync(req.file.path)}catch{};res.status(500).json({message:"Could not save logo"});}
+});
 app.post("/api/admin/payment-methods",admin,(req,res)=>{const db=readDB(),s=db.payment_settings,b=req.body||{};if(!b.name||!String(b.name).trim())return res.status(400).json({message:"Payment name is required"});s.methods ||= []; const base=String(b.id||('pm_'+Date.now()+'_'+crypto.randomBytes(3).toString('hex'))); if(s.methods.some(m=>m.id===base))return res.status(409).json({message:"Payment method ID already exists"});const m={id:base,name:String(b.name).trim().slice(0,60),label:String(b.label||'Payment').trim().slice(0,40),number:String(b.number||'').trim().slice(0,80),logo_url:String(b.logo_url||'').trim(),enabled:b.enabled!==false,sort_order:Number(b.sort_order)||s.methods.length};s.methods.push(m);s.methods.forEach((x,i)=>x.sort_order=i);audit(db,req,'payment_method_create',{id:m.id,name:m.name});writeDB(db);res.json({message:'Payment method created',method:m,payment_settings:s});});
 app.put("/api/admin/payment-methods/:id",admin,(req,res)=>{const db=readDB(),s=db.payment_settings,b=req.body||{},m=(s.methods||[]).find(x=>String(x.id)===String(req.params.id));if(!m)return res.status(404).json({message:'Payment method not found'});['name','label','number','logo_url'].forEach(k=>{if(b[k]!==undefined)m[k]=String(b[k]).trim().slice(0,k==='name'?60:k==='label'?40:100)});if(b.enabled!==undefined)m.enabled=!!b.enabled;if(b.sort_order!==undefined)m.sort_order=Math.max(0,Number(b.sort_order)||0);s.methods.sort((a,b)=>a.sort_order-b.sort_order).forEach((x,i)=>x.sort_order=i);audit(db,req,'payment_method_update',{id:m.id,name:m.name});writeDB(db);res.json({message:'Payment method updated',method:m,payment_settings:s});});
 app.delete("/api/admin/payment-methods/:id",admin,(req,res)=>{const db=readDB(),s=db.payment_settings||{},before=s.methods||[],m=before.find(x=>String(x.id)===String(req.params.id));if(!m)return res.status(404).json({message:'Payment method not found'});s.methods=before.filter(x=>String(x.id)!==String(req.params.id)).sort((a,b)=>a.sort_order-b.sort_order).map((x,i)=>({...x,sort_order:i}));audit(db,req,'payment_method_delete',{id:m.id,name:m.name});writeDB(db);res.json({message:'Payment method deleted',payment_settings:s});});
