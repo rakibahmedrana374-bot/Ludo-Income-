@@ -23,7 +23,7 @@ const OTP_TTL_MS=5*60*1000;
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
-if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg?v=2"},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg?v=2"},bkash_merchant:{number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg?v=2"},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},maintenance:{enabled:false,title:"🔧 Update চলছে",message:"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।",footer:"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️",button_text:"🔄 আবার চেষ্টা করুন"},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
+if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],site_config:{features:{registration:true,login:true,deposit:true,withdraw:true,matches:true,referral:true,support:true,winning:true,announcement:true,download_app:true},home:{hero_title:"Ludo Income",hero_text:"Play · Win · Earn",show_announcement:true,show_matches:true,show_quick_buttons:true,buttons:[],sections:[]}},payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:"/payment-logos/bkash-personal.jpg?v=2"},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:"/payment-logos/nagad-personal.jpg?v=2"},bkash_merchant:{number:"01301470686",label:"Merchant",enabled:true,logo_url:"/payment-logos/bkash-merchant.jpg?v=2"},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},maintenance:{enabled:false,title:"🔧 Update চলছে",message:"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।",footer:"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️",button_text:"🔄 আবার চেষ্টা করুন"},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
 
 function readDB(){
   const db=JSON.parse(fs.readFileSync(DB_FILE,"utf8"));
@@ -228,6 +228,7 @@ app.post("/api/user/change-mobile",auth,(req,res)=>{
 });
 
 app.post("/api/auth/register",async(req,res)=>{
+ const cfg=readDB(); if(cfg.site_config?.features?.registration===false)return res.status(403).json({message:"Registration is currently disabled"});
  const {name,password}=req.body;
  const mobile=normalizeMobile(req.body.mobile);
  if(!name||!mobile||!password) return res.status(400).json({message:"Name, mobile and password required"});
@@ -240,7 +241,8 @@ app.post("/api/auth/register",async(req,res)=>{
  res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
 });
 app.post("/api/auth/login",async(req,res)=>{
- const db=readDB(),mobile=normalizeMobile(req.body.mobile),u=db.users.find(x=>x.mobile===mobile);
+ const db=readDB(); if(db.site_config?.features?.login===false)return res.status(403).json({message:"Login is currently disabled"});
+ const mobile=normalizeMobile(req.body.mobile),u=db.users.find(x=>x.mobile===mobile);
  if(!u||!(await bcrypt.compare(req.body.password||"",u.password))) return res.status(401).json({message:"Invalid mobile or password"});
  if(u.blocked) return res.status(403).json({message:"Account blocked"});
  res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
@@ -256,7 +258,8 @@ app.get("/api/user/profile",auth,(req,res)=>{
 app.get("/api/user/balance",auth,(req,res)=>res.json({balance:getBalance(readDB(),req.user.id)}));
 
 app.get("/api/matches",auth,(req,res)=>{
- const db=readDB(), threshold=Number(db.match_settings?.players_to_close||2);
+ const db=readDB(); if(db.site_config?.features?.matches===false)return res.json({matches:[]});
+ const  threshold=Number(db.match_settings?.players_to_close||2);
  res.json({matches:db.matches.map(m=>{
    const ps=db.match_players.filter(p=>p.match_id===m.id);
    const joined=ps.some(p=>p.user_id===req.user.id);
@@ -276,7 +279,8 @@ app.get("/api/user/my-matches",auth,(req,res)=>{
  res.json({matches:items,settings:db.match_settings});
 });
 app.post("/api/matches/:id/join",auth,(req,res)=>{
- const db=readDB(),m=db.matches.find(x=>x.id==req.params.id); if(!m)return res.status(404).json({message:"Match not found"});
+ const db=readDB(); if(db.site_config?.features?.matches===false)return res.status(403).json({message:"Matches are currently disabled"});
+ const m=db.matches.find(x=>x.id==req.params.id); if(!m)return res.status(404).json({message:"Match not found"});
  if(String(m.status).toLowerCase()==="full"||String(m.status).toLowerCase()==="completed")return res.status(400).json({message:"Match is closed"});
  if(db.match_players.some(p=>p.match_id==m.id&&p.user_id==req.user.id))return res.status(400).json({message:"Already joined"});
  const threshold=Number(db.match_settings?.players_to_close||2);
@@ -297,7 +301,8 @@ app.get("/api/payment-settings",(req,res)=>{
  res.json({payment_settings:s});
 });
 app.post("/api/deposit",auth,(req,res)=>{
- const db=readDB(),amount=Number(req.body.amount),method=String(req.body.method||"").toLowerCase(),tx=String(req.body.transaction_id||"").trim();
+ const db=readDB(); if(db.site_config?.features?.deposit===false)return res.status(403).json({message:"Deposit is currently disabled"});
+ const amount=Number(req.body.amount),method=String(req.body.method||"").toLowerCase(),tx=String(req.body.transaction_id||"").trim();
  const s=db.payment_settings;
  const pm=Array.isArray(s.methods)?s.methods.find(x=>String(x.id)===String(method)):null;
  if(!pm || pm.enabled===false) return res.status(400).json({message:"এই payment method এখন বন্ধ আছে"});
@@ -310,7 +315,7 @@ app.post("/api/deposit",auth,(req,res)=>{
  writeDB(db);res.json({message:"Deposit submitted for approval"});
 });
 app.post("/api/withdraw",auth,(req,res)=>{
- const db=readDB();ensureSecurity(db);const amount=Number(req.body.amount),b=getBalance(db,req.user.id),method=String(req.body.method||"").toLowerCase(),number=normalizeMobile(req.body.number);
+ const db=readDB(); if(db.site_config?.features?.withdraw===false)return res.status(403).json({message:"Withdraw is currently disabled"}); ensureSecurity(db);const amount=Number(req.body.amount),b=getBalance(db,req.user.id),method=String(req.body.method||"").toLowerCase(),number=normalizeMobile(req.body.number);
  if(!["bkash","nagad"].includes(method))return res.status(400).json({message:"Invalid withdrawal method"});
  if(!validMobile(number))return res.status(400).json({message:"Valid Bangladesh mobile number required"});
  const ws=db.withdraw_settings;
@@ -342,7 +347,8 @@ app.get("/api/user/statement",auth,(req,res)=>{
  res.json({statement:events,match_count:joined.length,profile_settings:db.profile_settings});
 });
 app.post("/api/winning",auth,upload.single("screenshot"),(req,res)=>{
- const db=readDB(),matchId=Number(req.body.match_id);
+ const db=readDB(); if(db.site_config?.features?.winning===false)return res.status(403).json({message:"Winning submission is currently disabled"});
+ const matchId=Number(req.body.match_id);
  if(!req.file)return res.status(400).json({message:"Screenshot required"});
  const m=db.matches.find(x=>x.id===matchId); if(!m)return res.status(404).json({message:"Match not found"});
  const joined=db.match_players.some(p=>p.match_id===matchId&&p.user_id===req.user.id); if(!joined)return res.status(403).json({message:"You did not join this match"});
@@ -353,7 +359,7 @@ app.post("/api/winning",auth,upload.single("screenshot"),(req,res)=>{
  writeDB(db); res.json({success:true,message:db.match_settings?.success_message||"Screenshot submitted successfully!"});
 });
 app.post("/api/support",auth,(req,res)=>{
- const db=readDB(); if(!req.body.message)return res.status(400).json({message:"Message required"});
+ const db=readDB(); if(db.site_config?.features?.support===false)return res.status(403).json({message:"Support is currently disabled"}); if(!req.body.message)return res.status(400).json({message:"Message required"});
  db.support_messages.push({id:id(db.support_messages),user_id:req.user.id,message:req.body.message,reply:"",status:"open",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Message sent"});
 });
 
@@ -477,6 +483,17 @@ app.post("/api/admin/winnings/:id/:action",admin,(req,res)=>{
 });
 app.get("/api/admin/support",admin,(req,res)=>{const db=readDB();res.json({items:db.support_messages.map(s=>({...s,user:db.users.find(u=>u.id===s.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/support/:id/reply",admin,(req,res)=>{const db=readDB(),s=db.support_messages.find(x=>x.id==req.params.id);if(!s)return res.status(404).json({message:"Message not found"});s.reply=req.body.reply||"";s.status="replied";writeDB(db);res.json({message:"Reply saved"})});
+app.get("/api/site-config",(req,res)=>{const s=readDB().site_config||{};res.json({features:s.features||{},home:s.home||{}})});
+app.get("/api/admin/site-config",admin,(req,res)=>res.json({site_config:readDB().site_config||{}}));
+app.put("/api/admin/site-config",admin,(req,res)=>{const db=readDB(),b=req.body||{},cur=db.site_config||{};if(b.features&&typeof b.features==='object'){cur.features={...(cur.features||{})};for(const k of Object.keys(cur.features)){if(b.features[k]!==undefined)cur.features[k]=!!b.features[k]};for(const [k,v] of Object.entries(b.features)){if(cur.features[k]===undefined)cur.features[k]=!!v}}if(b.home&&typeof b.home==='object'){cur.home={...(cur.home||{})};for(const k of ['hero_title','hero_text'])if(b.home[k]!==undefined)cur.home[k]=String(b.home[k]).slice(0,200);for(const k of ['show_announcement','show_matches','show_quick_buttons'])if(b.home[k]!==undefined)cur.home[k]=!!b.home[k];}db.site_config=cur;audit(db,req,'site_config_update',{features:cur.features,home:cur.home});writeDB(db);res.json({message:'Site configuration saved',site_config:cur})});
+app.post("/api/admin/site-buttons",admin,(req,res)=>{const db=readDB(),h=db.site_config.home,b=req.body||{};if(!String(b.label||'').trim())return res.status(400).json({message:'Button label is required'});const x={id:'btn_'+Date.now()+'_'+crypto.randomBytes(3).toString('hex'),label:String(b.label).trim().slice(0,60),icon:String(b.icon||'🔘').slice(0,12),action:String(b.action||'').trim().slice(0,200),description:String(b.description||'').trim().slice(0,160),enabled:b.enabled!==false,sort_order:h.buttons.length};h.buttons.push(x);h.buttons.forEach((v,i)=>v.sort_order=i);audit(db,req,'site_button_create',{id:x.id,label:x.label});writeDB(db);res.json({message:'Button created',button:x,site_config:db.site_config})});
+app.put("/api/admin/site-buttons/:id",admin,(req,res)=>{const db=readDB(),h=db.site_config.home,x=h.buttons.find(v=>String(v.id)===String(req.params.id));if(!x)return res.status(404).json({message:'Button not found'});for(const k of ['label','icon','action','description'])if(req.body[k]!==undefined)x[k]=String(req.body[k]).trim().slice(0,k==='label'?60:k==='icon'?12:k==='description'?160:200);if(req.body.enabled!==undefined)x.enabled=!!req.body.enabled;h.buttons.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).forEach((v,i)=>v.sort_order=i);audit(db,req,'site_button_update',{id:x.id});writeDB(db);res.json({message:'Button updated',site_config:db.site_config})});
+app.delete("/api/admin/site-buttons/:id",admin,(req,res)=>{const db=readDB(),h=db.site_config.home;h.buttons=h.buttons.filter(v=>String(v.id)!==String(req.params.id)).map((v,i)=>({...v,sort_order:i}));audit(db,req,'site_button_delete',{id:req.params.id});writeDB(db);res.json({message:'Button deleted',site_config:db.site_config})});
+app.put("/api/admin/site-buttons-reorder",admin,(req,res)=>{const db=readDB(),h=db.site_config.home,ids=Array.isArray(req.body?.ids)?req.body.ids.map(String):[];const map=new Map(h.buttons.map(x=>[String(x.id),x]));const a=ids.map(id=>map.get(id)).filter(Boolean);h.buttons.filter(x=>!ids.includes(String(x.id))).forEach(x=>a.push(x));h.buttons=a.map((x,i)=>({...x,sort_order:i}));audit(db,req,'site_button_reorder',{ids:a.map(x=>x.id)});writeDB(db);res.json({message:'Button order saved',site_config:db.site_config})});
+app.post("/api/admin/site-sections",admin,(req,res)=>{const db=readDB(),h=db.site_config.home,b=req.body||{};if(!String(b.title||'').trim())return res.status(400).json({message:'Section title is required'});const x={id:'sec_'+Date.now()+'_'+crypto.randomBytes(3).toString('hex'),title:String(b.title).trim().slice(0,100),text:String(b.text||'').trim().slice(0,500),image_url:String(b.image_url||'').trim().slice(0,500),button_text:String(b.button_text||'').trim().slice(0,60),button_action:String(b.button_action||'').trim().slice(0,200),enabled:b.enabled!==false,sort_order:h.sections.length};h.sections.push(x);h.sections.forEach((v,i)=>v.sort_order=i);audit(db,req,'site_section_create',{id:x.id,title:x.title});writeDB(db);res.json({message:'Section created',section:x,site_config:db.site_config})});
+app.put("/api/admin/site-sections/:id",admin,(req,res)=>{const db=readDB(),h=db.site_config.home,x=h.sections.find(v=>String(v.id)===String(req.params.id));if(!x)return res.status(404).json({message:'Section not found'});for(const k of ['title','text','image_url','button_text','button_action'])if(req.body[k]!==undefined)x[k]=String(req.body[k]).trim().slice(0,k==='title'?100:k==='text'?500:k==='button_text'?60:200);if(req.body.enabled!==undefined)x.enabled=!!req.body.enabled;writeDB(db);audit(db,req,'site_section_update',{id:x.id});res.json({message:'Section updated',site_config:db.site_config})});
+app.delete("/api/admin/site-sections/:id",admin,(req,res)=>{const db=readDB(),h=db.site_config.home;h.sections=h.sections.filter(v=>String(v.id)!==String(req.params.id)).map((v,i)=>({...v,sort_order:i}));audit(db,req,'site_section_delete',{id:req.params.id});writeDB(db);res.json({message:'Section deleted',site_config:db.site_config})});
+app.put("/api/admin/site-sections-reorder",admin,(req,res)=>{const db=readDB(),h=db.site_config,ids=Array.isArray(req.body?.ids)?req.body.ids.map(String):[];const map=new Map(h.sections.map(x=>[String(x.id),x]));const a=ids.map(id=>map.get(id)).filter(Boolean);h.sections.filter(x=>!ids.includes(String(x.id))).forEach(x=>a.push(x));h.sections=a.map((x,i)=>({...x,sort_order:i}));audit(db,req,'site_section_reorder',{ids:a.map(x=>x.id)});writeDB(db);res.json({message:'Section order saved',site_config:db.site_config})});
 app.get("/api/admin/payment-settings",admin,(req,res)=>res.json({payment_settings:readDB().payment_settings}));
 app.post("/api/admin/payment-methods/upload",admin,upload.single("logo"),(req,res)=>{
   if(!req.file)return res.status(400).json({message:"Logo file required"});
@@ -511,6 +528,7 @@ app.put("/api/admin/maintenance",admin,(req,res)=>{
  ["title","message","footer","button_text"].forEach(k=>{if(b[k]!==undefined)m[k]=String(b[k]);});
  db.maintenance=m;writeDB(db);res.json({message:m.enabled?"Maintenance mode enabled":"Maintenance mode disabled",maintenance:m});
 });
+app.get("/api/announcements",(req,res)=>{const db=readDB();res.json({items:(db.announcements||[]).filter(a=>a.enabled!==false),enabled:db.site_config?.features?.announcement!==false});});
 app.get("/api/admin/announcements",admin,(req,res)=>res.json({items:readDB().announcements}));
 app.post("/api/admin/announcements",admin,(req,res)=>{const db=readDB();const a={id:id(db.announcements),text:req.body.text||"",enabled:true,created_at:new Date().toISOString()};db.announcements.push(a);writeDB(db);res.json({message:"Announcement created",announcement:a})});
 app.post("/api/admin/announcements/:id/toggle",admin,(req,res)=>{const db=readDB(),a=db.announcements.find(x=>x.id==req.params.id);if(!a)return res.status(404).json({message:"Not found"});a.enabled=!a.enabled;writeDB(db);res.json({message:"Updated"})});

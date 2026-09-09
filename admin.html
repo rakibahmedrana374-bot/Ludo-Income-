@@ -24,7 +24,7 @@
 <div id="content" class="content"></div></main></div>
 <script>
 const API="/api";let T=localStorage.getItem("li_admin");
-const NAV=[['overview','🏠','Dashboard'],['reports','📊','Reports'],['transactions','🧾','Transactions'],['users','👥','Users'],['deposits','➕','Deposits'],['withdraws','💸','Withdraws'],['matches','🎮','Matches'],['winnings','🏆','My Matches'],['support','🎧','Support'],['ann','🔔','Announcement'],['security','🔐','Security'],['payments','💳','Deposit Settings'],['profileSettings','⚙️','Profile Settings'],['matchSettings','🎯','Match Settings'],['maintenance','🔧','Maintenance'],['audit','🛡️','Audit Logs'],['logout','🚪','Logout']];
+const NAV=[['overview','🏠','Dashboard'],['reports','📊','Reports'],['transactions','🧾','Transactions'],['users','👥','Users'],['deposits','➕','Deposits'],['withdraws','💸','Withdraws'],['matches','🎮','Matches'],['winnings','🏆','My Matches'],['support','🎧','Support'],['ann','🔔','Announcement'],['security','🔐','Security'],['payments','💳','Deposit Settings'],['siteConfig','🧩','Site Builder'],['profileSettings','⚙️','Profile Settings'],['matchSettings','🎯','Match Settings'],['maintenance','🔧','Maintenance'],['audit','🛡️','Audit Logs'],['logout','🚪','Logout']];
 function buildNav(){nav.innerHTML=NAV.map(n=>`<button id="n-${n[0]}" onclick="tab('${n[0]}')"><span>${n[1]}</span>${n[2]}</button>`).join('')}
 async function req(p,o={}){o.headers={...(o.headers||{}),Authorization:"Bearer "+T,"Content-Type":"application/json"};let r=await fetch(API+p,o),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||"Request failed");return d}
 function money(n){return Number(n||0).toLocaleString("en-BD")}
