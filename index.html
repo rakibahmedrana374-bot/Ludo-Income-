@@ -346,7 +346,7 @@ nav button.active{
 <div id="authScreen" class="auth">
 <div class="auth-card">
 
-    <img class="auth-logo-img" src="/images/ludo-income-main-logo.jpg" alt="Ludo Income Logo">
+    <img class="auth-logo-img" src="/ludo-income-main-logo.jpg?v=2" alt="Ludo Income Logo">
     <div class="auth-sub">Play • Win • Earn</div>
 
     <div class="auth-tabs">
@@ -397,7 +397,7 @@ nav button.active{
 
 <header>
     <div class="header-row">
-        <div class="header-brand"><img class="brand-logo" src="/images/ludo-income-main-logo.jpg" alt="Ludo Income Logo"><div class="logo">Ludo Income</div></div>
+        <div class="header-brand"><img class="brand-logo" src="/ludo-income-main-logo.jpg?v=2" alt="Ludo Income Logo"><div class="logo">Ludo Income</div></div>
         <div class="online">● Online</div>
     </div>
 </header>
@@ -896,9 +896,9 @@ function renderPaymentMethods(){
     if(!methods.length){box.innerHTML='<div class="empty">কোনো payment method চালু নেই।</div>';return;}
     if(!methods.includes(depositMethod)) depositMethod="";
     const meta={
-      bkash:{name:"bKash",label:"Personal",logo:"/images/payment-logos/bkash-personal.jpg"},
-      nagad:{name:"Nagad",label:"Personal",logo:"/images/payment-logos/nagad-personal.jpg"},
-      bkash_merchant:{name:"bKash Merchant",label:"Merchant",logo:"/images/payment-logos/bkash-merchant.jpg"}
+      bkash:{name:"bKash",label:"Personal",logo:"/payment-logos/bkash-personal.jpg?v=2"},
+      nagad:{name:"Nagad",label:"Personal",logo:"/payment-logos/nagad-personal.jpg?v=2"},
+      bkash_merchant:{name:"bKash Merchant",label:"Merchant",logo:"/payment-logos/bkash-merchant.jpg?v=2"}
     };
     box.innerHTML=methods.map(m=>{
         const s=paymentSettings[m], info=meta[m], shown=depositMethod===m;

@@ -12,13 +12,13 @@
       "number": "01301470686",
       "label": "Personal",
       "enabled": true,
-      "logo_url": "/payment-logos/bkash-personal.jpg"
+      "logo_url": "/payment-logos/bkash-personal.jpg?v=2"
     },
     "nagad": {
       "number": "01806097369",
       "label": "Personal",
       "enabled": true,
-      "logo_url": "/payment-logos/nagad-personal.jpg"
+      "logo_url": "/payment-logos/nagad-personal.jpg?v=2"
     },
     "min_deposit": 10,
     "instructions": [
@@ -31,7 +31,7 @@
       "number": "01301470686",
       "label": "Merchant",
       "enabled": true,
-      "logo_url": "/payment-logos/bkash-merchant.jpg"
+      "logo_url": "/payment-logos/bkash-merchant.jpg?v=2"
     }
   },
   "profile_settings": {
