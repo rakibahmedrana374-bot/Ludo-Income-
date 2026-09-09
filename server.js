@@ -73,6 +73,19 @@ function readDB(){
   return db
 }
 function writeDB(db){fs.writeFileSync(DB_FILE,JSON.stringify(db,null,2))}
+function ensureAdminData(db){
+  db.audit_logs ||= []; db.activity_logs ||= [];
+  db.daily_reports ||= [];
+}
+function audit(db,req,action,details={}){
+  ensureAdminData(db);
+  db.audit_logs.push({id:id(db.audit_logs),admin_id:req.user?.id??0,action,path:req.path,method:req.method,details,created_at:new Date().toISOString()});
+}
+function dateRange(q){
+  const from=q.from?new Date(q.from+"T00:00:00"):null, to=q.to?new Date(q.to+"T23:59:59.999"):null;
+  return {from:from&&!isNaN(from)?from:null,to:to&&!isNaN(to)?to:null};
+}
+function inRange(iso,range){const d=new Date(iso);return (!range.from||d>=range.from)&&(!range.to||d<=range.to)}
 function id(arr){return arr.length?Math.max(...arr.map(x=>Number(x.id)||0))+1:1}
 function token(payload){return jwt.sign(payload,JWT_SECRET,{expiresIn:"30d"})}
 function auth(req,res,next){
@@ -152,6 +165,7 @@ function consumeOtp(db,mobile,purpose,code){
 }
 function ensureSecurity(db){
   db.otps ||= [];
+  ensureAdminData(db);
   db.admin_settings ||= {};
   if(!db.admin_settings.password_hash) db.admin_settings.password_hash=bcrypt.hashSync(ADMIN_PASSWORD,12);
   db.admin_settings.mobile=db.admin_settings.mobile||ADMIN_MOBILE;
@@ -356,37 +370,49 @@ app.post("/api/admin/change-password",admin,async(req,res)=>{
 app.get("/api/admin/security",admin,(req,res)=>{const db=readDB();ensureSecurity(db);res.json({mobile:db.admin_settings.mobile,password_changed_at:db.admin_settings.password_changed_at||null,withdraw_settings:db.withdraw_settings});});
 app.put("/api/admin/withdraw-settings",admin,(req,res)=>{const db=readDB();ensureSecurity(db);const b=req.body||{},w=db.withdraw_settings; if(b.min_withdraw!==undefined)w.min_withdraw=Math.max(1,Number(b.min_withdraw)||1);if(b.max_withdraw!==undefined)w.max_withdraw=Math.max(w.min_withdraw,Number(b.max_withdraw)||w.min_withdraw);if(b.fee!==undefined)w.fee=Math.max(0,Number(b.fee)||0);writeDB(db);res.json({message:"Withdraw settings saved",withdraw_settings:w});});
 app.get("/api/admin/stats",admin,(req,res)=>{
- const db=readDB(); res.json({
-  users:db.users.length,
-  gaming_balance:db.balances.reduce((s,b)=>s+Number(b.gaming_balance||0),0),
-  winning_balance:db.balances.reduce((s,b)=>s+Number(b.winning_balance||0),0),
-  pending_requests:db.transactions.filter(x=>x.status==="pending").length+db.winnings.filter(x=>x.status==="pending").length
+ const db=readDB(),range=dateRange(req.query);
+ const tx=db.transactions.filter(t=>inRange(t.created_at,range)), wins=db.winnings.filter(w=>inRange(w.created_at,range));
+ const approvedDeposits=tx.filter(x=>x.type==="deposit"&&x.status==="approved").reduce((s,x)=>s+Number(x.amount||0),0);
+ const approvedWithdraws=tx.filter(x=>x.type==="withdraw"&&x.status==="approved").reduce((s,x)=>s+Number(x.amount||0),0);
+ const fees=tx.filter(x=>x.type==="withdraw"&&x.status==="approved").reduce((s,x)=>s+Number(x.fee||0),0);
+ const entries=tx.filter(x=>x.type==="match_entry"&&x.status==="approved").reduce((s,x)=>s+Number(x.amount||0),0);
+ const prizes=tx.filter(x=>x.type==="match_profit"&&x.status==="approved").reduce((s,x)=>s+Number(x.amount||0),0);
+ const refunds=tx.filter(x=>x.type==="match_refund"&&x.status==="approved").reduce((s,x)=>s+Number(x.amount||0),0);
+ res.json({
+  users:db.users.length, active_users:db.users.filter(u=>!u.blocked).length, blocked_users:db.users.filter(u=>u.blocked).length,
+  gaming_balance:db.balances.reduce((s,b)=>s+Number(b.gaming_balance||0),0), winning_balance:db.balances.reduce((s,b)=>s+Number(b.winning_balance||0),0),
+  pending_requests:db.transactions.filter(x=>x.status==="pending").length+db.winnings.filter(x=>x.status==="pending").length,
+  approved_deposits:approvedDeposits,approved_withdraws:approvedWithdraws,withdraw_fees:fees,match_entries:entries,match_prizes:prizes,match_refunds:refunds,net_match_revenue:entries-prizes-refunds,
+  matches_total:db.matches.length,matches_completed:db.matches.filter(m=>m.status==="completed").length,matches_cancelled:db.matches.filter(m=>m.status==="cancelled").length,
+  daily: Array.from({length:7},(_,i)=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(6-i));const key=d.toISOString().slice(0,10);const z=tx.filter(t=>String(t.created_at).slice(0,10)===key);return {date:key,users:db.users.filter(u=>String(u.created_at).slice(0,10)===key).length,deposits:z.filter(t=>t.type==="deposit"&&t.status==="approved").reduce((a,t)=>a+Number(t.amount||0),0),withdraws:z.filter(t=>t.type==="withdraw"&&t.status==="approved").reduce((a,t)=>a+Number(t.amount||0),0),entries:z.filter(t=>t.type==="match_entry").reduce((a,t)=>a+Number(t.amount||0),0),prizes:z.filter(t=>t.type==="match_profit").reduce((a,t)=>a+Number(t.amount||0),0)}})
  });
 });
 app.get("/api/admin/users/:id/profile",admin,(req,res)=>{const db=readDB(),u=db.users.find(x=>x.id==req.params.id);if(!u)return res.status(404).json({message:"User not found"});const b=getBalance(db,u.id);res.json({user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code||"",referral_code:u.referral_code||"",created_at:u.created_at,blocked:!!u.blocked},balance:b,matches:db.match_players.filter(p=>p.user_id===u.id).map(p=>{const m=db.matches.find(x=>x.id===p.match_id);return {match_id:p.match_id,title:m?.title||"Ludo Match",entry_fee:Number(m?.entry_fee||0),status:m?.status||"",joined_at:p.created_at}})});});
 app.get("/api/admin/users",admin,(req,res)=>{
- const db=readDB(),q=(req.query.search||"").toLowerCase();
- res.json({users:db.users.filter(u=>!q||u.name.toLowerCase().includes(q)||u.mobile.includes(q)).map(u=>{const b=getBalance(db,u.id);return {id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code||"",referral_code:u.referral_code,blocked:!!u.blocked,matches:db.match_players.filter(p=>p.user_id===u.id).length,gaming_balance:b.gaming_balance,winning_balance:b.winning_balance}})});
+ const db=readDB(),q=String(req.query.search||"").toLowerCase(),status=String(req.query.status||"all"),page=Math.max(1,Number(req.query.page)||1),limit=Math.min(100,Math.max(5,Number(req.query.limit)||20));
+ let list=db.users.filter(u=>(!q||String(u.name||"").toLowerCase().includes(q)||String(u.mobile||"").includes(q)||String(u.uid_code||"").toLowerCase().includes(q)||String(u.referral_code||"").toLowerCase().includes(q))&&(status==="all"||(status==="blocked"&&u.blocked)||(status==="active"&&!u.blocked)));
+ const total=list.length; list=list.slice((page-1)*limit,page*limit);
+ res.json({users:list.map(u=>{const b=getBalance(db,u.id);return {id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code||"",referral_code:u.referral_code,blocked:!!u.blocked,matches:db.match_players.filter(p=>p.user_id===u.id).length,gaming_balance:b.gaming_balance,winning_balance:b.winning_balance}}),page,limit,total,pages:Math.ceil(total/limit)});
 });
-app.post("/api/admin/users/:id/block",admin,(req,res)=>{const db=readDB(),u=db.users.find(x=>x.id==req.params.id);if(!u)return res.status(404).json({message:"User not found"});u.blocked=req.body.blocked!==false;writeDB(db);res.json({message:"Updated"})});
+app.post("/api/admin/users/:id/block",admin,(req,res)=>{const db=readDB(),u=db.users.find(x=>x.id==req.params.id);if(!u)return res.status(404).json({message:"User not found"});u.blocked=req.body.blocked!==false;audit(db,req,u.blocked?"user_block":"user_unblock",{user_id:u.id});writeDB(db);res.json({message:"Updated"})});
 app.post("/api/admin/users/:id/balance",admin,(req,res)=>{
  const db=readDB(),b=getBalance(db,Number(req.params.id)),g=Number(req.body.gaming_delta||0),w=Number(req.body.winning_delta||0);
- b.gaming_balance+=g;b.winning_balance+=w;writeDB(db);res.json({message:"Balance updated",balance:b});
+ b.gaming_balance+=g;b.winning_balance+=w;db.transactions.push({id:id(db.transactions),user_id:Number(req.params.id),type:"admin_adjustment",gaming_delta:g,winning_delta:w,amount:g+w,status:"approved",created_at:new Date().toISOString()});audit(db,req,"balance_adjust",{user_id:Number(req.params.id),gaming_delta:g,winning_delta:w});writeDB(db);res.json({message:"Balance updated",balance:b});
 });
 app.get("/api/admin/deposits",admin,(req,res)=>{const db=readDB();res.json({items:db.transactions.filter(x=>x.type==="deposit").map(t=>({...t,user:db.users.find(u=>u.id===t.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/deposits/:id/:action",admin,(req,res)=>{
  const db=readDB(),t=db.transactions.find(x=>x.id==req.params.id&&x.type==="deposit");if(!t)return res.status(404).json({message:"Deposit not found"});
  if(t.status!=="pending")return res.status(400).json({message:"Already processed"});
- if(req.params.action==="approve"){t.status="approved";getBalance(db,t.user_id).gaming_balance+=Number(t.amount)}
- else if(req.params.action==="reject")t.status="rejected";else return res.status(400).json({message:"Invalid action"});
+ if(req.params.action==="approve"){t.status="approved";getBalance(db,t.user_id).gaming_balance+=Number(t.amount);audit(db,req,"deposit_approve",{transaction_id:t.id,user_id:t.user_id,amount:t.amount})}
+ else if(req.params.action==="reject"){t.status="rejected";audit(db,req,"deposit_reject",{transaction_id:t.id,user_id:t.user_id})}else return res.status(400).json({message:"Invalid action"});
  writeDB(db);res.json({message:"Deposit "+req.params.action});
 });
 app.get("/api/admin/withdraws",admin,(req,res)=>{const db=readDB();res.json({items:db.transactions.filter(x=>x.type==="withdraw").map(t=>({...t,user:db.users.find(u=>u.id===t.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/withdraws/:id/:action",admin,(req,res)=>{
  const db=readDB(),t=db.transactions.find(x=>x.id==req.params.id&&x.type==="withdraw");if(!t)return res.status(404).json({message:"Withdraw not found"});
  if(t.status!=="pending")return res.status(400).json({message:"Already processed"});
- if(req.params.action==="approve")t.status="approved";
- else if(req.params.action==="reject"){t.status="rejected";getBalance(db,t.user_id).winning_balance+=Number(t.total_debit??t.amount)}
+ if(req.params.action==="approve"){t.status="approved";audit(db,req,"withdraw_approve",{transaction_id:t.id,user_id:t.user_id,amount:t.amount});}
+ else if(req.params.action==="reject"){t.status="rejected";getBalance(db,t.user_id).winning_balance+=Number(t.total_debit??t.amount);audit(db,req,"withdraw_reject_refund",{transaction_id:t.id,user_id:t.user_id,refund:Number(t.total_debit??t.amount)})}
  else return res.status(400).json({message:"Invalid action"});
  writeDB(db);res.json({message:"Withdraw "+req.params.action});
 });
@@ -402,15 +428,15 @@ app.get("/api/admin/matches",admin,(req,res)=>{
 });
 app.post("/api/admin/matches",admin,(req,res)=>{
  const db=readDB(),m={id:id(db.matches),title:req.body.title||"Ludo Match",entry_fee:Number(req.body.entry_fee)||0,prize:Number(req.body.prize)||0,max_players:Number(req.body.max_players)||2,time:req.body.time||"",status:req.body.status||"upcoming",room_id:req.body.room_id||"",created_at:new Date().toISOString()};
- db.matches.push(m);writeDB(db);res.json({message:"Match created",match:m});
+ db.matches.push(m);audit(db,req,"match_create",{match_id:m.id,title:m.title});writeDB(db);res.json({message:"Match created",match:m});
 });
 app.put("/api/admin/matches/:id",admin,(req,res)=>{
  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:"Match not found"});
  ["title","time","status","room_id"].forEach(k=>{if(req.body[k]!==undefined)m[k]=req.body[k]});
  ["entry_fee","prize","max_players"].forEach(k=>{if(req.body[k]!==undefined)m[k]=Number(req.body[k])});
- writeDB(db);res.json({message:"Match updated"});
+ audit(db,req,"match_update",{match_id:m.id});writeDB(db);res.json({message:"Match updated"});
 });
-app.delete("/api/admin/matches/:id",admin,(req,res)=>{const db=readDB(),i=db.matches.findIndex(x=>x.id==req.params.id);if(i<0)return res.status(404).json({message:"Match not found"});db.matches.splice(i,1);db.match_players=db.match_players.filter(x=>x.match_id!=req.params.id);writeDB(db);res.json({message:"Match deleted"})});
+app.delete("/api/admin/matches/:id",admin,(req,res)=>{const db=readDB(),i=db.matches.findIndex(x=>x.id==req.params.id);if(i<0)return res.status(404).json({message:"Match not found"});const m=db.matches[i];if(m.status!=="completed"&&m.status!=="cancelled"){const players=db.match_players.filter(x=>x.match_id===m.id);players.forEach(p=>{const already=db.transactions.some(t=>t.type==="match_refund"&&t.match_id===m.id&&t.user_id===p.user_id);if(!already){const fee=Number(m.entry_fee||0);getBalance(db,p.user_id).gaming_balance+=fee;db.transactions.push({id:id(db.transactions),user_id:p.user_id,type:"match_refund",amount:fee,status:"approved",match_id:m.id,reason:"admin_delete",created_at:new Date().toISOString()});}})}db.matches.splice(i,1);db.match_players=db.match_players.filter(x=>x.match_id!=req.params.id);audit(db,req,"match_delete",{match_id:m.id});writeDB(db);res.json({message:"Match deleted safely"})});
 app.post("/api/admin/matches/:id/result",admin,(req,res)=>{
  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:"Match not found"});
  const winnerId=Number(req.body.winner_user_id);if(!winnerId)return res.status(400).json({message:"Winner user required"});
@@ -419,21 +445,33 @@ app.post("/api/admin/matches/:id/result",admin,(req,res)=>{
  m.status="completed";m.winner_user_id=winnerId;m.result_locked=true;m.completed_at=new Date().toISOString();
  const prize=Number(m.prize||0),existing=db.transactions.some(t=>t.type==="match_profit"&&t.match_id===m.id&&t.user_id===winnerId);
  if(!existing&&prize>0){getBalance(db,winnerId).winning_balance+=prize;db.transactions.push({id:id(db.transactions),user_id:winnerId,type:"match_profit",amount:prize,status:"approved",match_id:m.id,created_at:new Date().toISOString()});}
- writeDB(db);res.json({message:"Match result saved",winner_user_id:winnerId});
+ audit(db,req,"match_result",{match_id:m.id,winner_user_id:winnerId,prize});writeDB(db);res.json({message:"Match result saved",winner_user_id:winnerId});
 });
 app.post("/api/admin/matches/:id/cancel",admin,(req,res)=>{
  const db=readDB(),m=db.matches.find(x=>x.id==req.params.id);if(!m)return res.status(404).json({message:"Match not found"});if(m.status==="completed"||m.status==="cancelled")return res.status(400).json({message:"Match already closed"});
  m.status="cancelled";m.cancelled_at=new Date().toISOString();const players=db.match_players.filter(p=>p.match_id===m.id);
  players.forEach(p=>{const refunded=db.transactions.some(t=>t.type==="match_refund"&&t.match_id===m.id&&t.user_id===p.user_id);if(!refunded){const fee=Number(m.entry_fee||0);getBalance(db,p.user_id).gaming_balance+=fee;db.transactions.push({id:id(db.transactions),user_id:p.user_id,type:"match_refund",amount:fee,status:"approved",match_id:m.id,created_at:new Date().toISOString()});}});
- writeDB(db);res.json({message:"Match cancelled and players refunded"});
+ audit(db,req,"match_cancel_refund",{match_id:m.id,players:players.length});writeDB(db);res.json({message:"Match cancelled and players refunded"});
 });
+app.get("/api/admin/reports",admin,(req,res)=>{
+ const db=readDB(),r=dateRange(req.query),tx=db.transactions.filter(t=>inRange(t.created_at,r)),matches=db.matches.filter(m=>inRange(m.created_at,r));
+ const by=(type,status)=>tx.filter(t=>t.type===type&&(!status||t.status===status)).reduce((s,t)=>s+Number(t.amount||0),0);
+ res.json({from:req.query.from||null,to:req.query.to||null,summary:{approved_deposits:by("deposit","approved"),pending_deposits:by("deposit","pending"),approved_withdraws:by("withdraw","approved"),pending_withdraws:by("withdraw","pending"),withdraw_fees:tx.filter(t=>t.type==="withdraw"&&t.status==="approved").reduce((s,t)=>s+Number(t.fee||0),0),match_entries:by("match_entry","approved"),match_prizes:by("match_profit","approved"),match_refunds:by("match_refund","approved"),matches:matches.length},transactions:tx.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,500)});
+});
+app.get("/api/admin/transactions",admin,(req,res)=>{
+ const db=readDB(),r=dateRange(req.query),q=String(req.query.search||"").toLowerCase(),type=String(req.query.type||"all"),status=String(req.query.status||"all");
+ const items=db.transactions.filter(t=>inRange(t.created_at,r)&&(type==="all"||t.type===type)&&(status==="all"||t.status===status)).filter(t=>{const u=db.users.find(x=>x.id===t.user_id);return !q||String(u?.name||"").toLowerCase().includes(q)||String(u?.mobile||"").includes(q)||String(t.transaction_id||"").toLowerCase().includes(q)}).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,1000).map(t=>({...t,user_name:db.users.find(u=>u.id===t.user_id)?.name||"-",user_mobile:db.users.find(u=>u.id===t.user_id)?.mobile||"-"}));
+ res.json({items});
+});
+app.get("/api/admin/audit-logs",admin,(req,res)=>{const db=readDB(),r=dateRange(req.query),q=String(req.query.search||"").toLowerCase();res.json({items:(db.audit_logs||[]).filter(x=>inRange(x.created_at,r)&&(!q||String(x.action).toLowerCase().includes(q)||String(x.path).toLowerCase().includes(q))).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,500)});});
+app.get("/api/admin/export",admin,(req,res)=>{const db=readDB(),r=dateRange(req.query),kind=String(req.query.kind||"transactions");let rows=[];if(kind==="users")rows=db.users.map(u=>({id:u.id,name:u.name,mobile:u.mobile,uid:u.uid_code,referral:u.referral_code,blocked:!!u.blocked,created_at:u.created_at}));else if(kind==="matches")rows=db.matches.map(m=>({id:m.id,title:m.title,entry_fee:m.entry_fee,prize:m.prize,max_players:m.max_players,status:m.status,winner_user_id:m.winner_user_id||"",created_at:m.created_at}));else rows=db.transactions.filter(t=>inRange(t.created_at,r)).map(t=>({id:t.id,user_id:t.user_id,type:t.type,amount:t.amount,status:t.status,method:t.method||"",transaction_id:t.transaction_id||"",created_at:t.created_at}));const escv=v=>`"${String(v??"").replace(/"/g,'""')}"`;const keys=rows.length?Object.keys(rows[0]):[];const csv=[keys.join(","),...rows.map(x=>keys.map(k=>escv(x[k])).join(","))].join("\n");res.setHeader("Content-Type","text/csv; charset=utf-8");res.setHeader("Content-Disposition",`attachment; filename=ludo-income-${kind}.csv`);res.send("\ufeff"+csv);});
 app.get("/api/admin/winnings",admin,(req,res)=>{const db=readDB();res.json({items:db.winnings.map(w=>({...w,user:db.users.find(u=>u.id===w.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/winnings/:id/:action",admin,(req,res)=>{
  const db=readDB(),w=db.winnings.find(x=>x.id==req.params.id);if(!w)return res.status(404).json({message:"Winning not found"});
  if(w.status!=="pending")return res.status(400).json({message:"Already processed"});
  if(req.params.action==="approve"){w.status="approved";const m=db.matches.find(x=>x.id===w.match_id);if(m){const prize=Number(m.prize||0);getBalance(db,w.user_id).winning_balance+=prize;db.transactions.push({id:id(db.transactions),user_id:w.user_id,type:"match_profit",amount:prize,status:"approved",match_id:w.match_id,created_at:new Date().toISOString()});}}
  else if(req.params.action==="reject")w.status="rejected";else return res.status(400).json({message:"Invalid action"});
- writeDB(db);res.json({message:"Winning "+req.params.action});
+ audit(db,req,"winning_"+req.params.action,{winning_id:w.id,user_id:w.user_id,match_id:w.match_id});writeDB(db);res.json({message:"Winning "+req.params.action});
 });
 app.get("/api/admin/support",admin,(req,res)=>{const db=readDB();res.json({items:db.support_messages.map(s=>({...s,user:db.users.find(u=>u.id===s.user_id)?.mobile||"-"}))})});
 app.post("/api/admin/support/:id/reply",admin,(req,res)=>{const db=readDB(),s=db.support_messages.find(x=>x.id==req.params.id);if(!s)return res.status(404).json({message:"Message not found"});s.reply=req.body.reply||"";s.status="replied";writeDB(db);res.json({message:"Reply saved"})});
