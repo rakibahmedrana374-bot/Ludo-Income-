@@ -20,7 +20,7 @@ const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DB_FILE=path.join(DATA_DIR,"database.json");
-if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
+if(!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE,JSON.stringify({users:[],balances:[],matches:[],match_players:[],transactions:[],winnings:[],support_messages:[],announcements:[],payment_settings:{bkash:{number:"01301470686",label:"Personal",enabled:true,logo_url:""},nagad:{number:"01806097369",label:"Personal",enabled:true,logo_url:""},min_deposit:10,instructions:["কমপক্ষে ১০ টাকা ডিপোজিট করা যাবে।","টাকা পাঠানোর পর bKash/Nagad Statement বা Transaction History থেকে Transaction ID নিন।","Transaction ID অবশ্যই জমা দিতে হবে।","সঠিক Transaction ID না দিলে ডিপোজিট approve হবে না এবং balance-এ টাকা যোগ হবে না।"]},maintenance:{enabled:false,title:"🔧 Update চলছে",message:"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।",footer:"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️",button_text:"🔄 আবার চেষ্টা করুন"},profile_settings:{uid_prefix:"LI",profile_logo:"👨‍🦱",show_name:true,show_mobile:true,show_uid:true,show_matches:true,show_referral:true,uid_label:"UID Code",mobile_label:"Mobile Number",matches_label:"🎮 Matches",statement_label:"📒 My Statement"},match_settings:{players_to_close:2,show_room_after_full:true,my_match_label:"🎉 My Match 🎉",upload_label:"📸 Upload Winning Screenshot",success_message:"Screenshot submitted successfully!"}},null,2));
 
 function readDB(){
   const db=JSON.parse(fs.readFileSync(DB_FILE,"utf8"));
@@ -56,6 +56,13 @@ function readDB(){
   ms.upload_label=ms.upload_label||"📸 Upload Winning Screenshot";
   ms.success_message=ms.success_message||"Screenshot submitted successfully!";
   if(ms.one_screenshot_per_match===undefined) ms.one_screenshot_per_match=true;
+  db.maintenance ||= {};
+  const mt=db.maintenance;
+  if(mt.enabled===undefined) mt.enabled=false;
+  mt.title=mt.title||"🔧 Update চলছে";
+  mt.message=mt.message||"আমাদের Ludo Income App বর্তমানে আপডেট করা হচ্ছে। Update শেষ হলে আবার প্রবেশ করতে পারবেন।";
+  mt.footer=mt.footer||"এতক্ষণ আমাদের সাথে থাকার জন্য ধন্যবাদ ❤️";
+  mt.button_text=mt.button_text||"🔄 আবার চেষ্টা করুন";
   return db
 }
 function writeDB(db){fs.writeFileSync(DB_FILE,JSON.stringify(db,null,2))}
@@ -69,6 +76,22 @@ function auth(req,res,next){
   }catch(e){res.status(401).json({message:"Unauthorized"})}
 }
 function admin(req,res,next){auth(req,res,()=>{if(req.user.role!=="admin") return res.status(403).json({message:"Admin only"}); next()})}
+function maintenanceEnabled(){ return !!readDB().maintenance?.enabled; }
+function maintenancePage(){
+ const m=readDB().maintenance||{};
+ const safe=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+ return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#16a34a"><title>Ludo Income — Update</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f0fdf4,#dcfce7);font-family:Arial,"Noto Sans Bengali",sans-serif;color:#111827}.box{width:min(92%,430px);background:#fff;border-radius:24px;padding:34px 24px;text-align:center;box-shadow:0 12px 40px #0002}.icon{font-size:58px}.title{font-size:28px;margin:12px 0}.msg{font-size:17px;line-height:1.7;color:#4b5563}.foot{margin-top:22px;font-weight:700;color:#166534}.btn{margin-top:22px;border:0;border-radius:12px;padding:13px 20px;background:#16a34a;color:#fff;font-weight:700;font-size:16px}</style></head><body><main class="box"><div class="icon">🔧</div><h1 class="title">${safe(m.title)}</h1><div class="msg">${safe(m.message).replace(/\n/g,"<br>")}</div><div class="foot">${safe(m.footer)}</div><button class="btn" onclick="location.reload()">${safe(m.button_text)}</button></main></body></html>`;
+}
+app.get("/api/maintenance",(req,res)=>res.json({maintenance:readDB().maintenance||{enabled:false}}));
+// Maintenance blocks normal users/site while keeping Admin Panel and Admin APIs accessible.
+app.use((req,res,next)=>{
+ const p=req.path||"";
+ if(p==="/api/health" || p==="/api/maintenance" || p==="/admin" || p.startsWith("/api/admin") || p.startsWith("/uploads/")) return next();
+ if(!maintenanceEnabled()) return next();
+ if(p.startsWith("/api/")) return res.status(503).json({success:false,maintenance:true,message:(readDB().maintenance?.message)||"Update চলছে"});
+ return res.status(503).type("html").send(maintenancePage());
+});
+
 function getBalance(db,uid){
   let b=db.balances.find(x=>x.user_id===uid);
   if(!b){b={id:id(db.balances),user_id:uid,gaming_balance:0,winning_balance:0};db.balances.push(b);writeDB(db)}
@@ -302,6 +325,13 @@ app.put("/api/admin/profile-settings",admin,(req,res)=>{
  ["profile_logo","uid_label","mobile_label","matches_label","statement_label"].forEach(k=>{if(b[k]!==undefined)s[k]=String(b[k]);});
  ["show_name","show_mobile","show_uid","show_matches","show_referral"].forEach(k=>{if(b[k]!==undefined)s[k]=!!b[k];});
  db.profile_settings=s;writeDB(db);res.json({message:"Profile settings saved",profile_settings:s});
+});
+app.get("/api/admin/maintenance",admin,(req,res)=>res.json({maintenance:readDB().maintenance||{enabled:false}}));
+app.put("/api/admin/maintenance",admin,(req,res)=>{
+ const db=readDB(),b=req.body||{},m=db.maintenance||{};
+ if(b.enabled!==undefined)m.enabled=!!b.enabled;
+ ["title","message","footer","button_text"].forEach(k=>{if(b[k]!==undefined)m[k]=String(b[k]);});
+ db.maintenance=m;writeDB(db);res.json({message:m.enabled?"Maintenance mode enabled":"Maintenance mode disabled",maintenance:m});
 });
 app.get("/api/admin/announcements",admin,(req,res)=>res.json({items:readDB().announcements}));
 app.post("/api/admin/announcements",admin,(req,res)=>{const db=readDB();const a={id:id(db.announcements),text:req.body.text||"",enabled:true,created_at:new Date().toISOString()};db.announcements.push(a);writeDB(db);res.json({message:"Announcement created",announcement:a})});
