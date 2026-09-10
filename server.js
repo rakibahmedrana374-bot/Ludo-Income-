@@ -16,16 +16,21 @@ if(isProduction) app.set("trust proxy",1);
 app.disable("x-powered-by");
 
 const configuredOrigins=String(process.env.CORS_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean);
-app.use(cors({
-  origin:(origin,cb)=>{
-    if(!origin) return cb(null, true);
-    if(configuredOrigins.length===0) return cb(new Error("CORS origin not allowed"));
-    return cb(null, configuredOrigins.includes(origin));
-  },
-  methods:["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
-  allowedHeaders:["Content-Type","Authorization"],
-  credentials:false
-}));
+// This app is normally served from the same origin, so CORS is not needed unless
+// the operator explicitly configures additional trusted frontend origins.
+// Previously an empty CORS_ORIGINS caused every browser POST to be rejected with
+// a server-side CORS error, which surfaced to users as "Internal server error".
+if(configuredOrigins.length){
+  app.use(cors({
+    origin:(origin,cb)=>{
+      if(!origin) return cb(null, true);
+      return cb(null, configuredOrigins.includes(origin));
+    },
+    methods:["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
+    allowedHeaders:["Content-Type","Authorization"],
+    credentials:false
+  }));
+}
 // Keep CSP disabled because this project currently uses inline scripts, while still enabling
 // Helmet's other useful security headers (frameguard, noSniff, HSTS when HTTPS is used, etc.).
 app.use(helmet({contentSecurityPolicy:false, crossOriginEmbedderPolicy:false}));
@@ -316,17 +321,29 @@ app.post("/api/user/change-mobile",auth,(req,res)=>{
 });
 
 app.post("/api/auth/register",authLimiter,async(req,res)=>{
- const cfg=readDB(); if(cfg.site_config?.features?.registration===false)return res.status(403).json({message:"Registration is currently disabled"});
- const {name,password}=req.body;
- const mobile=normalizeMobile(req.body.mobile);
- if(!name||!mobile||!password) return res.status(400).json({message:"Name, mobile and password required"});
- const pErr=passwordError(password); if(pErr) return res.status(400).json({message:pErr});
- if(!validMobile(mobile)) return res.status(400).json({message:"Valid Bangladesh mobile number required"});
- const db=readDB();
- if(db.users.some(u=>u.mobile===mobile)) return res.status(409).json({message:"Mobile already registered"});
- const u={id:id(db.users),name,mobile,password:await bcrypt.hash(password,10),uid_code:makeUid(db),referral_code:"LI"+Math.random().toString(36).slice(2,8).toUpperCase(),blocked:false,mobile_verified:false,created_at:new Date().toISOString()};
- db.users.push(u); db.balances.push({id:id(db.balances),user_id:u.id,gaming_balance:0,winning_balance:0}); const authToken=issueSession(db,{id:u.id,role:"user",pwdv:String(u.password_changed_at||"")}); writeDB(db);
- res.json({token:authToken,user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
+ try{
+  const cfg=readDB();
+  if(cfg.site_config?.features?.registration===false)return res.status(403).json({message:"Registration is currently disabled"});
+  const name=String(req.body?.name||"").trim();
+  const password=String(req.body?.password||"");
+  const mobile=normalizeMobile(req.body?.mobile);
+  if(!name||!mobile||!password) return res.status(400).json({message:"Name, mobile and password required"});
+  if(name.length>80) return res.status(400).json({message:"Name is too long"});
+  const pErr=passwordError(password); if(pErr) return res.status(400).json({message:pErr});
+  if(!validMobile(mobile)) return res.status(400).json({message:"Valid Bangladesh mobile number required"});
+  const db=readDB();
+  db.users ||= []; db.balances ||= []; db.sessions ||= [];
+  if(db.users.some(u=>u.mobile===mobile)) return res.status(409).json({message:"Mobile already registered"});
+  const u={id:id(db.users),name,mobile,password:await bcrypt.hash(password,12),uid_code:makeUid(db),referral_code:"LI"+crypto.randomBytes(4).toString("hex").toUpperCase(),blocked:false,mobile_verified:false,created_at:new Date().toISOString()};
+  db.users.push(u);
+  db.balances.push({id:id(db.balances),user_id:u.id,gaming_balance:0,winning_balance:0});
+  const authToken=issueSession(db,{id:u.id,role:"user",pwdv:String(u.password_changed_at||"")});
+  writeDB(db);
+  return res.json({token:authToken.token,user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
+ }catch(err){
+  console.error("Registration failed:",err);
+  return res.status(500).json({message:"Registration failed. Please try again."});
+ }
 });
 app.post("/api/auth/login",authLimiter,async(req,res)=>{
  const db=readDB(); if(db.site_config?.features?.login===false)return res.status(403).json({message:"Login is currently disabled"});
