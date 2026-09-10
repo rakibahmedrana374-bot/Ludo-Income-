@@ -7,26 +7,58 @@ const bcrypt=require("bcryptjs");
 const jwt=require("jsonwebtoken");
 const multer=require("multer");
 const crypto=require("crypto");
+const helmet=require("helmet");
+const rateLimit=require("express-rate-limit");
 
+const isProduction=process.env.NODE_ENV==="production";
 const app=express();
-app.use(cors());
-app.use(express.json({limit:"2mb"}));
-app.use(express.urlencoded({extended:true}));
+if(isProduction) app.set("trust proxy",1);
+app.disable("x-powered-by");
+
+const configuredOrigins=String(process.env.CORS_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean);
+app.use(cors({
+  origin:(origin,cb)=>{
+    if(!origin) return cb(null, true);
+    if(configuredOrigins.length===0) return cb(new Error("CORS origin not allowed"));
+    return cb(null, configuredOrigins.includes(origin));
+  },
+  methods:["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
+  allowedHeaders:["Content-Type","Authorization"],
+  credentials:false
+}));
+// Keep CSP disabled because this project currently uses inline scripts, while still enabling
+// Helmet's other useful security headers (frameguard, noSniff, HSTS when HTTPS is used, etc.).
+app.use(helmet({contentSecurityPolicy:false, crossOriginEmbedderPolicy:false}));
+app.use(express.json({limit:"1mb"}));
+app.use(express.urlencoded({extended:false,limit:"1mb"}));
+
+const ipKey=req=>req.ip||req.headers["x-forwarded-for"]||"unknown";
+const authLimiter=rateLimit({windowMs:15*60*1000,max:20,standardHeaders:true,legacyHeaders:false,skipSuccessfulRequests:false,message:{message:"Too many authentication attempts. Please try again later."}});
+const otpLimiter=rateLimit({windowMs:15*60*1000,max:5,standardHeaders:true,legacyHeaders:false,keyGenerator:ipKey,message:{message:"Too many OTP requests. Please try again later."}});
+const adminLoginLimiter=rateLimit({windowMs:15*60*1000,max:8,standardHeaders:true,legacyHeaders:false,keyGenerator:ipKey,message:{message:"Too many admin login attempts. Please try again later."}});
+
 
 const PORT=process.env.PORT||3000;
-const JWT_SECRET=process.env.JWT_SECRET||"CHANGE_THIS_JWT_SECRET";
+const JWT_SECRET=process.env.JWT_SECRET||"";
+if(isProduction && JWT_SECRET.length<32){
+  throw new Error("JWT_SECRET must be set to a random value of at least 32 characters in production.");
+}
+if(!JWT_SECRET){ console.warn("WARNING: JWT_SECRET is not set. A temporary random secret will be used for this process only."); }
+const EFFECTIVE_JWT_SECRET=JWT_SECRET||crypto.randomBytes(48).toString("hex");
 const ADMIN_MOBILE=process.env.ADMIN_MOBILE||"01700000000";
 const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||"ChangeMe123!";
+if(isProduction && !process.env.ADMIN_PASSWORD){ throw new Error("ADMIN_PASSWORD must be set in production."); }
 const SMS_WEBHOOK_URL=process.env.SMS_WEBHOOK_URL||"";
 const OTP_TTL_MS=5*60*1000;
 
 const ROOT=__dirname, DATA_DIR=path.join(ROOT,"data"), UPLOAD_DIR=path.join(ROOT,"uploads");
 fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
+try{fs.chmodSync(DATA_DIR,0o700);}catch{}
 const DB_FILE=path.join(DATA_DIR,"database.json");
 const LEGACY_DB_FILE=path.join(ROOT,"database.json");
 if(!fs.existsSync(DB_FILE)){
-  if(fs.existsSync(LEGACY_DB_FILE)) fs.copyFileSync(LEGACY_DB_FILE,DB_FILE);
-  else fs.writeFileSync(DB_FILE,JSON.stringify({},null,2));
+  if(fs.existsSync(LEGACY_DB_FILE)) { fs.copyFileSync(LEGACY_DB_FILE,DB_FILE); try{fs.chmodSync(DB_FILE,0o600);}catch{} }
+  else fs.writeFileSync(DB_FILE,JSON.stringify({},null,2),{mode:0o600});
 }
 
 function defaultSiteConfig(){return {features:{registration:true,login:true,deposit:true,withdraw:true,matches:true,referral:true,support:true,winning:true,announcement:true,download_app:true},home:{hero_title:"Ludo Income",hero_text:"Play · Win · Earn",show_announcement:true,show_matches:true,show_quick_buttons:true,quick_buttons:[{id:"deposit",label:"Deposit",icon:"💳",action:"page:deposit",enabled:true,sort_order:0},{id:"withdraw",label:"Withdraw",icon:"💸",action:"page:withdraw",enabled:true,sort_order:1},{id:"matches",label:"Tournament",icon:"🏆",action:"page:matches",enabled:true,sort_order:2},{id:"mymatches",label:"My Match",icon:"🎉",action:"page:mymatches",enabled:true,sort_order:3}],buttons:[],sections:[]}}}
@@ -88,7 +120,11 @@ function readDB(){
   mt.button_text=mt.button_text||"🔄 আবার চেষ্টা করুন";
   return db
 }
-function writeDB(db){fs.writeFileSync(DB_FILE,JSON.stringify(db,null,2))}
+function writeDB(db){
+  const tmp=DB_FILE+".tmp";
+  fs.writeFileSync(tmp,JSON.stringify(db,null,2),{mode:0o600});
+  fs.renameSync(tmp,DB_FILE);
+}
 function ensureAdminData(db){
   db.audit_logs ||= []; db.activity_logs ||= [];
   db.daily_reports ||= [];
@@ -103,15 +139,51 @@ function dateRange(q){
 }
 function inRange(iso,range){const d=new Date(iso);return (!range.from||d>=range.from)&&(!range.to||d<=range.to)}
 function id(arr){return arr.length?Math.max(...arr.map(x=>Number(x.id)||0))+1:1}
-function token(payload){return jwt.sign(payload,JWT_SECRET,{expiresIn:"30d"})}
+function token(payload){
+  const jti=crypto.randomBytes(24).toString("hex");
+  const now=new Date().toISOString();
+  return {token:jwt.sign({...payload,jti},EFFECTIVE_JWT_SECRET,{expiresIn:"2h"}),jti,created_at:now};
+}
+function issueSession(db,payload){
+  db.sessions ||= [];
+  const t=token(payload);
+  db.sessions.push({jti:t.jti,user_id:payload.id,role:payload.role,created_at:t.created_at,last_seen_at:t.created_at});
+  // Keep only the newest 20 sessions per account.
+  const sessions=db.sessions.filter(s=>s.user_id===payload.id&&s.role===payload.role).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const keep=new Set(sessions.slice(0,20).map(s=>s.jti));
+  db.sessions=db.sessions.filter(s=>s.user_id!==payload.id||s.role!==payload.role||keep.has(s.jti));
+  return t.token;
+}
+function revokeUserSessions(db,userId){db.sessions ||= [];db.sessions=db.sessions.filter(s=>!(s.user_id===userId&&s.role==="user"));}
+function revokeAdminSessions(db){db.sessions ||= [];db.sessions=db.sessions.filter(s=>s.role!=="admin");}
 function auth(req,res,next){
   try{
     const h=req.headers.authorization||"";
     if(!h.startsWith("Bearer ")) throw new Error();
-    req.user=jwt.verify(h.slice(7),JWT_SECRET); next();
-  }catch(e){res.status(401).json({message:"Unauthorized"})}
+    const decoded=jwt.verify(h.slice(7),EFFECTIVE_JWT_SECRET);
+    const db=readDB();
+    const session=(db.sessions||[]).find(s=>s.jti===decoded.jti&&s.user_id===decoded.id&&s.role===decoded.role);
+    if(!session) throw new Error();
+    if(decoded.role==="user"){
+      const u=db.users.find(x=>x.id===decoded.id);
+      if(!u || u.blocked) throw new Error();
+      if(decoded.pwdv!==String(u.password_changed_at||"")) throw new Error();
+    }else if(decoded.role==="admin"){
+      const av=String(db.admin_settings?.auth_version||"1");
+      if(String(decoded.av||"")!==av) throw new Error();
+    }
+    session.last_seen_at=new Date().toISOString();
+    // Do not persist last_seen on every request; the session itself is still valid via DB presence.
+    req.user=decoded; next();
+  }catch(e){res.status(401).json({message:"Unauthorized or expired session"})}
 }
 function admin(req,res,next){auth(req,res,()=>{if(req.user.role!=="admin") return res.status(403).json({message:"Admin only"}); next()})}
+function passwordError(password,isAdmin=false){
+  const min=isAdmin?10:8;
+  if(String(password||"").length<min) return `Password must be at least ${min} characters`;
+  if(!/[A-Z]/.test(password)||!/[a-z]/.test(password)||!/[0-9]/.test(password)) return "Password must include uppercase, lowercase and a number";
+  return null;
+}
 function maintenanceEnabled(){ return !!readDB().maintenance?.enabled; }
 function maintenancePage(){
  const m=readDB().maintenance||{};
@@ -136,7 +208,7 @@ function getBalance(db,uid){
 const upload=multer({storage:multer.diskStorage({
  destination:(req,file,cb)=>cb(null,UPLOAD_DIR),
  filename:(req,file,cb)=>cb(null,Date.now()+"-"+Math.random().toString(36).slice(2)+path.extname(file.originalname).toLowerCase())
-}),limits:{fileSize:5*1024*1024}});
+}),fileFilter:(req,file,cb)=>{if(!/^image\/(png|jpe?g|webp)$/.test(file.mimetype)) return cb(new Error("Only PNG, JPG or WEBP images are allowed"));cb(null,true)},limits:{fileSize:5*1024*1024}});
 
 app.get("/api/health",(req,res)=>res.json({ok:true,service:"Ludo Income"}));
 
@@ -183,15 +255,17 @@ function ensureSecurity(db){
   db.otps ||= [];
   ensureAdminData(db);
   db.admin_settings ||= {};
-  if(!db.admin_settings.password_hash) db.admin_settings.password_hash=bcrypt.hashSync(ADMIN_PASSWORD,12);
+  if(!db.admin_settings.password_hash){ db.admin_settings.password_hash=bcrypt.hashSync(ADMIN_PASSWORD,12); }
   db.admin_settings.mobile=db.admin_settings.mobile||ADMIN_MOBILE;
+  db.admin_settings.auth_version=String(db.admin_settings.auth_version||"1");
+  db.sessions ||= [];
   db.withdraw_settings ||= {min_withdraw:50,max_withdraw:50000,fee:0};
   db.withdraw_settings.min_withdraw=Math.max(1,Number(db.withdraw_settings.min_withdraw)||50);
   db.withdraw_settings.max_withdraw=Math.max(db.withdraw_settings.min_withdraw,Number(db.withdraw_settings.max_withdraw)||50000);
   db.withdraw_settings.fee=Math.max(0,Number(db.withdraw_settings.fee)||0);
 }
 
-app.post("/api/auth/request-otp",async(req,res)=>{
+app.post("/api/auth/request-otp",otpLimiter,async(req,res)=>{
  const mobile=normalizeMobile(req.body.mobile),purpose=String(req.body.purpose||"");
  if(!validMobile(mobile)) return res.status(400).json({message:"Valid Bangladesh mobile number required"});
  if(!["register","reset_password","change_mobile"].includes(purpose)) return res.status(400).json({message:"Invalid OTP purpose"});
@@ -211,21 +285,21 @@ app.post("/api/auth/verify-otp",(req,res)=>{
  if(!result.ok) return res.status(400).json({message:result.message});
  res.json({verified:true});
 });
-app.post("/api/auth/forgot-password",async(req,res)=>{
+app.post("/api/auth/forgot-password",authLimiter,async(req,res)=>{
  const mobile=normalizeMobile(req.body.mobile),otp=String(req.body.otp||""),password=String(req.body.password||"");
  if(!validMobile(mobile)) return res.status(400).json({message:"Valid Bangladesh mobile number required"});
- if(password.length<6) return res.status(400).json({message:"Password must be at least 6 characters"});
+ const pErr=passwordError(password); if(pErr) return res.status(400).json({message:pErr});
  const db=readDB(),u=db.users.find(x=>x.mobile===mobile); if(!u)return res.status(404).json({message:"Mobile number not found"});
  const result=consumeOtp(db,mobile,"reset_password",otp); if(!result.ok){writeDB(db);return res.status(400).json({message:result.message});}
- u.password=await bcrypt.hash(password,12); u.password_changed_at=new Date().toISOString(); writeDB(db);
+ u.password=await bcrypt.hash(password,12); u.password_changed_at=new Date().toISOString(); revokeUserSessions(db,u.id); writeDB(db);
  res.json({message:"Password reset successfully"});
 });
 app.post("/api/user/change-password",auth,async(req,res)=>{
  const current=String(req.body.current_password||""),next=String(req.body.new_password||"");
- if(next.length<6)return res.status(400).json({message:"New password must be at least 6 characters"});
+ const pErr=passwordError(next); if(pErr)return res.status(400).json({message:pErr});
  const db=readDB(),u=db.users.find(x=>x.id===req.user.id); if(!u)return res.status(404).json({message:"User not found"});
  if(!(await bcrypt.compare(current,u.password)))return res.status(400).json({message:"Current password is incorrect"});
- u.password=await bcrypt.hash(next,12);u.password_changed_at=new Date().toISOString();writeDB(db);res.json({message:"Password changed successfully"});
+ u.password=await bcrypt.hash(next,12);u.password_changed_at=new Date().toISOString();revokeUserSessions(db,u.id);writeDB(db);res.json({message:"Password changed successfully"});
 });
 app.post("/api/user/request-mobile-change",auth,async(req,res)=>{
  const mobile=normalizeMobile(req.body.mobile); if(!validMobile(mobile))return res.status(400).json({message:"Valid Bangladesh mobile number required"});
@@ -241,25 +315,26 @@ app.post("/api/user/change-mobile",auth,(req,res)=>{
  u.mobile=mobile;u.mobile_verified=true;u.mobile_changed_at=new Date().toISOString();writeDB(db);res.json({message:"Mobile number changed successfully"});
 });
 
-app.post("/api/auth/register",async(req,res)=>{
+app.post("/api/auth/register",authLimiter,async(req,res)=>{
  const cfg=readDB(); if(cfg.site_config?.features?.registration===false)return res.status(403).json({message:"Registration is currently disabled"});
  const {name,password}=req.body;
  const mobile=normalizeMobile(req.body.mobile);
  if(!name||!mobile||!password) return res.status(400).json({message:"Name, mobile and password required"});
- if(password.length<6) return res.status(400).json({message:"Password must be at least 6 characters"});
+ const pErr=passwordError(password); if(pErr) return res.status(400).json({message:pErr});
  if(!validMobile(mobile)) return res.status(400).json({message:"Valid Bangladesh mobile number required"});
  const db=readDB();
  if(db.users.some(u=>u.mobile===mobile)) return res.status(409).json({message:"Mobile already registered"});
  const u={id:id(db.users),name,mobile,password:await bcrypt.hash(password,10),uid_code:makeUid(db),referral_code:"LI"+Math.random().toString(36).slice(2,8).toUpperCase(),blocked:false,mobile_verified:false,created_at:new Date().toISOString()};
- db.users.push(u); db.balances.push({id:id(db.balances),user_id:u.id,gaming_balance:0,winning_balance:0}); writeDB(db);
- res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
+ db.users.push(u); db.balances.push({id:id(db.balances),user_id:u.id,gaming_balance:0,winning_balance:0}); const authToken=issueSession(db,{id:u.id,role:"user",pwdv:String(u.password_changed_at||"")}); writeDB(db);
+ res.json({token:authToken,user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
 });
-app.post("/api/auth/login",async(req,res)=>{
+app.post("/api/auth/login",authLimiter,async(req,res)=>{
  const db=readDB(); if(db.site_config?.features?.login===false)return res.status(403).json({message:"Login is currently disabled"});
  const mobile=normalizeMobile(req.body.mobile),u=db.users.find(x=>x.mobile===mobile);
  if(!u||!(await bcrypt.compare(req.body.password||"",u.password))) return res.status(401).json({message:"Invalid mobile or password"});
  if(u.blocked) return res.status(403).json({message:"Account blocked"});
- res.json({token:token({id:u.id,role:"user"}),user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
+ const authToken=issueSession(db,{id:u.id,role:"user",pwdv:String(u.password_changed_at||"")}); writeDB(db);
+ res.json({token:authToken,user:{id:u.id,name:u.name,mobile:u.mobile,uid_code:u.uid_code,referral_code:u.referral_code}});
 });
 app.get("/api/user/profile",auth,(req,res)=>{
  const db=readDB(),u=db.users.find(x=>x.id===req.user.id); if(!u)return res.status(404).json({message:"User not found"});
@@ -377,17 +452,19 @@ app.post("/api/support",auth,(req,res)=>{
  db.support_messages.push({id:id(db.support_messages),user_id:req.user.id,message:req.body.message,reply:"",status:"open",created_at:new Date().toISOString()});writeDB(db);res.json({message:"Message sent"});
 });
 
+app.post("/api/auth/logout",auth,(req,res)=>{const db=readDB();db.sessions=(db.sessions||[]).filter(s=>s.jti!==req.user.jti);writeDB(db);res.json({message:"Logged out"});});
+
 /* Admin */
-app.post("/api/admin/login",async(req,res)=>{
+app.post("/api/admin/login",adminLoginLimiter,async(req,res)=>{
  const db=readDB();ensureSecurity(db);const mobile=normalizeMobile(req.body.mobile),password=String(req.body.password||"");
  if(mobile!==db.admin_settings.mobile||!(await bcrypt.compare(password,db.admin_settings.password_hash)))return res.status(401).json({message:"Invalid admin credentials"});
- writeDB(db);res.json({token:token({id:0,role:"admin"})});
+ const authToken=issueSession(db,{id:0,role:"admin",av:String(db.admin_settings.auth_version)});writeDB(db);res.json({token:authToken});
 });
 app.post("/api/admin/change-password",admin,async(req,res)=>{
  const db=readDB();ensureSecurity(db);const current=String(req.body.current_password||""),next=String(req.body.new_password||"");
- if(next.length<8)return res.status(400).json({message:"Admin password must be at least 8 characters"});
+ const pErr=passwordError(next,true); if(pErr)return res.status(400).json({message:pErr});
  if(!(await bcrypt.compare(current,db.admin_settings.password_hash)))return res.status(400).json({message:"Current admin password is incorrect"});
- db.admin_settings.password_hash=await bcrypt.hash(next,12);db.admin_settings.password_changed_at=new Date().toISOString();writeDB(db);res.json({message:"Admin password changed successfully"});
+ db.admin_settings.password_hash=await bcrypt.hash(next,12);db.admin_settings.password_changed_at=new Date().toISOString();db.admin_settings.auth_version=String(Number(db.admin_settings.auth_version||1)+1);revokeAdminSessions(db);writeDB(db);res.json({message:"Admin password changed successfully"});
 });
 app.get("/api/admin/security",admin,(req,res)=>{const db=readDB();ensureSecurity(db);res.json({mobile:db.admin_settings.mobile,password_changed_at:db.admin_settings.password_changed_at||null,withdraw_settings:db.withdraw_settings});});
 app.put("/api/admin/withdraw-settings",admin,(req,res)=>{const db=readDB();ensureSecurity(db);const b=req.body||{},w=db.withdraw_settings; if(b.min_withdraw!==undefined)w.min_withdraw=Math.max(1,Number(b.min_withdraw)||1);if(b.max_withdraw!==undefined)w.max_withdraw=Math.max(w.min_withdraw,Number(b.max_withdraw)||w.min_withdraw);if(b.fee!==undefined)w.fee=Math.max(0,Number(b.fee)||0);writeDB(db);res.json({message:"Withdraw settings saved",withdraw_settings:w});});
@@ -549,10 +626,15 @@ app.post("/api/admin/announcements",admin,(req,res)=>{const db=readDB();const a=
 app.post("/api/admin/announcements/:id/toggle",admin,(req,res)=>{const db=readDB(),a=db.announcements.find(x=>x.id==req.params.id);if(!a)return res.status(404).json({message:"Not found"});a.enabled=!a.enabled;writeDB(db);res.json({message:"Updated"})});
 app.delete("/api/admin/announcements/:id",admin,(req,res)=>{const db=readDB();db.announcements=db.announcements.filter(x=>x.id!=req.params.id);writeDB(db);res.json({message:"Deleted"})});
 
-app.use("/uploads",express.static(UPLOAD_DIR));
+app.use("/uploads",express.static(UPLOAD_DIR,{dotfiles:"deny",index:false}));
 const PAYMENT_LOGO_DIR=path.join(ROOT,"payment-logos");
 fs.mkdirSync(PAYMENT_LOGO_DIR,{recursive:true});
-app.use("/payment-logos",express.static(PAYMENT_LOGO_DIR));
+app.use("/payment-logos",express.static(PAYMENT_LOGO_DIR,{dotfiles:"deny",index:false}));
+
+// Never expose server.js, database.json, package files or other source files as public static assets.
+const PUBLIC_FILES=new Set(["index.html","admin.html","manifest.json","sw.js","logo.svg","logo.png","ludo-income-logo.jpg","ludo-income-logo.svg","ludo-income-main-logo.jpg","ludo-income-main-logo.svg","ludo-income-cover.jpg","ludo-income-cover.svg","cover.svg","icon-192.png","icon-512.png","bkash-personal.jpg","bkash-merchant.jpg","nagad-personal.jpg"]);
+app.get("/:file",(req,res,next)=>{const file=String(req.params.file||"");if(!PUBLIC_FILES.has(file))return next();res.sendFile(path.join(ROOT,file));});
+app.get("/",(req,res)=>res.sendFile(path.join(ROOT,"index.html")));
 app.get("/admin",(req,res)=>{
   const publicAdmin=path.join(ROOT,"public","admin.html");
   const rootAdmin=path.join(ROOT,"admin.html");
@@ -560,7 +642,12 @@ app.get("/admin",(req,res)=>{
   if(fs.existsSync(rootAdmin)) return res.sendFile(rootAdmin);
   return res.status(404).send("Admin panel file not found");
 });
-app.get("/",(req,res)=>res.sendFile(path.join(ROOT,"index.html")));
-app.use(express.static(ROOT));
+
+app.use((err,req,res,next)=>{
+  if(err?.code==="LIMIT_FILE_SIZE") return res.status(413).json({message:"Uploaded file is too large"});
+  if(err?.message?.includes("Only PNG, JPG or WEBP")) return res.status(400).json({message:err.message});
+  console.error("Unhandled request error:",err);
+  return res.status(500).json({message:"Internal server error"});
+});
 app.use((req,res)=>res.status(404).send("Not Found"));
 app.listen(PORT,"0.0.0.0",()=>console.log(`Ludo Income server running on port ${PORT}`));

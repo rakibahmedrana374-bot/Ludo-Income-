@@ -621,7 +621,7 @@ let withdrawMethod = "bkash";
 const $ = id => document.getElementById(id);
 
 function token(){
-    return localStorage.getItem("ludo_income_token");
+    return sessionStorage.getItem("ludo_income_token") || localStorage.getItem("ludo_income_token");
 }
 
 function headers(){
@@ -671,7 +671,7 @@ function showForgot(){ $("forgotModal").classList.remove("hidden"); $("forgotMob
 function closeForgot(){ $("forgotModal").classList.add("hidden"); }
 async function requestForgotOtp(){ try{ const d=await fetch("/api/auth/request-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mobile:$("forgotMobile").value.trim(),purpose:"reset_password"})}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.message||"Request failed");return x}); $("forgotMsg").innerHTML='<div class="msg success">'+escapeHtml(d.message)+'</div>'; }catch(e){$("forgotMsg").innerHTML='<div class="msg error">'+escapeHtml(e.message)+'</div>';}}
 async function resetForgotPassword(){ try{ const d=await fetch("/api/auth/forgot-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mobile:$("forgotMobile").value.trim(),otp:$("forgotOtp").value.trim(),password:$("forgotPassword").value})}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.message||"Request failed");return x}); alert(d.message); closeForgot(); showAuth("login"); }catch(e){alert(e.message);} }
-async function changePassword(){ const current=prompt("Current password:"); if(current===null)return; const next=prompt("New password (minimum 6 characters):"); if(next===null)return; try{const d=await api("/api/user/change-password",{method:"POST",body:JSON.stringify({current_password:current,new_password:next})});alert(d.message);}catch(e){alert(e.message)}}
+async function changePassword(){ const current=prompt("Current password:"); if(current===null)return; const next=prompt("New password (minimum 8 characters, with uppercase/lowercase/number):"); if(next===null)return; try{const d=await api("/api/user/change-password",{method:"POST",body:JSON.stringify({current_password:current,new_password:next})});alert(d.message);}catch(e){alert(e.message)}}
 async function changeMobile(){ const mobile=prompt("New mobile number:"); if(mobile===null)return; try{await api("/api/user/request-mobile-change",{method:"POST",body:JSON.stringify({mobile:mobile.trim()})}); const otp=prompt("Enter the OTP sent to the new number:"); if(otp===null)return; const d=await api("/api/user/change-mobile",{method:"POST",body:JSON.stringify({mobile:mobile.trim(),otp:otp.trim()})}); alert(d.message); loadUser(); }catch(e){alert(e.message)}}
 
 /* AUTH */
@@ -703,7 +703,9 @@ $("loginForm").addEventListener("submit", async e=>{
             })
         });
 
-        localStorage.setItem("ludo_income_token", data.token);
+        sessionStorage.setItem("ludo_income_token", data.token);
+        sessionStorage.removeItem("ludo_income_token");
+    localStorage.removeItem("ludo_income_token");
 
         openApp();
     }catch(err){
@@ -724,7 +726,8 @@ $("registerForm").addEventListener("submit", async e=>{
             })
         });
 
-        localStorage.setItem("ludo_income_token", data.token);
+        sessionStorage.setItem("ludo_income_token", data.token);
+        localStorage.removeItem("ludo_income_token");
 
         openApp();
     }catch(err){
@@ -742,7 +745,9 @@ function openApp(){
     loadAll();
 }
 
-function logout(){
+async function logout(){
+    try{ if(token()) await fetch("/api/auth/logout",{method:"POST",headers:{Authorization:"Bearer "+token()}}); }catch(e){}
+    sessionStorage.removeItem("ludo_income_token");
     localStorage.removeItem("ludo_income_token");
     localStorage.removeItem("ludo_income_page");
 
